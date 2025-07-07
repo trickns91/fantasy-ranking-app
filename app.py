@@ -27,20 +27,22 @@ if not st.session_state.user_selected:
     for i, name in enumerate(USERS):
         if cols[i % 4].button(name):
             st.session_state.user_selected = name
-            st.experimental_rerun()
     st.stop()
 
-# Etapa 2: Autenticação por senha
+# Etapa 2: Autenticação por senha (exceto Patrick)
 if not st.session_state.authenticated:
-    st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
-    pwd = st.text_input("Senha (6 dígitos)", type="password")
-    if st.button("Entrar"):
-        if USERS[st.session_state.user_selected] == pwd:
-            st.session_state.authenticated = True
-            st.experimental_rerun()
-        else:
-            st.error("Senha incorreta.")
-    st.stop()
+    if st.session_state.user_selected == "Patrick":
+        st.session_state.authenticated = True
+    else:
+        st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
+        pwd = st.text_input("Senha (6 dígitos)", type="password")
+        if st.button("Entrar"):
+            if USERS[st.session_state.user_selected] == pwd:
+                st.session_state.authenticated = True
+                st.experimental_rerun()
+            else:
+                st.error("Senha incorreta.")
+        st.stop()
 
 # Etapa 3: Seleção da posição
 user = st.session_state.user_selected
