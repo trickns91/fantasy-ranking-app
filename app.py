@@ -31,7 +31,7 @@ if not st.session_state.user_selected:
             st.session_state.user_selected = name
             st.session_state.confirm_reset = False
             st.success("Ranking reiniciado com sucesso. Recarregue a página ou selecione novamente a posição.")
-                st.stop()
+st.stop()
     st.stop()
 
 if not st.session_state.authenticated:
