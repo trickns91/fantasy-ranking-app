@@ -34,9 +34,15 @@ if not st.session_state.user_selected:
     st.stop()
 
 if not st.session_state.authenticated:
-    if st.session_state.user_selected == "Patrick":
-        st.session_state.authenticated = True
-        st.stop()
+    st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
+    pwd = st.text_input("Senha (6 dígitos)", type="password")
+    if st.button("Entrar"):
+        if USERS[st.session_state.user_selected] == pwd or st.session_state.user_selected == "Patrick":
+            st.session_state.authenticated = True
+            st.experimental_rerun()
+        else:
+            st.error("Senha incorreta.")
+    st.stop()
     else:
         st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
         pwd = st.text_input("Senha (6 dígitos)", type="password")
