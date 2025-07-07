@@ -21,7 +21,7 @@ st.title("🏈 Brain League Rankings")
 # === Etapa 1: Seleção de usuário ===
 if "user" not in st.session_state:
     st.subheader("Escolha seu nome:")
-cols = st.columns(2) if st.session_state.get("mobile", False) else st.columns(4)
+    cols = st.columns(4)
     for i, name in enumerate(usuarios):
         if cols[i % 4].button(name):
             st.session_state["user"] = name
