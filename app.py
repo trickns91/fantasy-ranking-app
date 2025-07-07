@@ -52,14 +52,13 @@ position = st.selectbox("Escolha a posição para ranquear:", ["QB", "RB", "WR",
 players_df = load_players(position)
 all_players = players_df["PLAYER NAME"].tolist()
 
-if "progress" not in st.session_state:
-    st.session_state.progress = load_user_progress(user, position) or {
-        "preferences": [],
-        "ranked": [],
-        "history": []
-    }
-
-progress = st.session_state.progress
+# Recarrega sempre o progresso mais recente do disco
+progress = load_user_progress(user, position) or {
+    "preferences": [],
+    "ranked": [],
+    "history": []
+}
+st.session_state.progress = progress
 
 # Botões de reset e pular
 col1, col2 = st.columns(2)
