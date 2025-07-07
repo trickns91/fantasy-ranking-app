@@ -72,12 +72,45 @@ if st.session_state.get("pagina") == "previa":
     G = nx.DiGraph()
     for vencedor, perdedor in progress["preferences"]:
         G.add_edge(vencedor, perdedor)
-    ranking = list(nx.topological_sort(G)) if nx.is_directed_acyclic_graph(G) else []
+
+    if nx.is_directed_acyclic_graph(G):
+        ranking = list(nx.topological_sort(G))
+    else:
+        scores = {p: 0 for p in all_players}
+        for vencedor, perdedor in progress["preferences"]:
+            scores[vencedor] += 1
+        ranking = sorted(scores, key=scores.get, reverse=True)
+
     if ranking:
-        for i, nome in enumerate(ranking):
-            st.markdown(f"**{i+1}. {nome}**")
+        fantasypros_rank = {name: i for i, name in enumerate(all_players)}
+        scores = {p: 0 for p in all_players}
+        for vencedor, perdedor in progress["preferences"]:
+            scores[vencedor] += 1
+
+        # Agrupar em tiers simples: 1 ponto de diferença = mesmo tier
+        sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        tiers = []
+        tier = []
+        last_score = None
+        for player, score in sorted_players:
+            if last_score is None or abs(score - last_score) <= 1:
+                tier.append((player, score))
+            else:
+                tiers.append(tier)
+                tier = [(player, score)]
+            last_score = score
+        if tier:
+            tiers.append(tier)
+
+        for t_idx, t in enumerate(tiers):
+            st.markdown(f"#### 🎯 Tier {t_idx+1}")
+            for i, (nome, score) in enumerate(t):
+                delta = fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
+                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
+                st.markdown(f"**{ranking.index(nome)+1}. {nome}** ({emoji}{abs(delta)}) ⭐ {score}")
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
+
     if st.button("⬅️ Voltar para comparações"):
         st.session_state["pagina"] = "comparar"
         st.rerun()
