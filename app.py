@@ -112,7 +112,7 @@ if st.session_state.get("pagina") == "previa":
                     st.markdown(f"**{ranking.index(nome)+1}. {nome}**")
                     st.caption(f"Δ: {delta:+} {emoji} | ⭐ {score}")
             else:
-        st.info("Ainda não há comparações suficientes para gerar ranking.")
+            st.info("Ainda não há comparações suficientes para gerar ranking.")
 
     if st.button("⬅️ Voltar para comparações"):
         st.session_state["pagina"] = "comparar"
