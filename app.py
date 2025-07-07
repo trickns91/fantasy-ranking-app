@@ -86,17 +86,24 @@ for i, player in enumerate(trio):
     label = st.session_state.choices[player]
     color = LABEL_COLORS[label]
     emoji = LABEL_EMOJIS[label]
-    if cols[i].button(f"{emoji} {player}", key=f"btn_{player}"):
-        current = label
-        used = set(st.session_state.choices.values())
-        current_idx = LABELS.index(current)
-        # Gira até encontrar próxima disponível
-        for offset in range(1, len(LABELS)):
-            candidate = LABELS[(current_idx + offset) % len(LABELS)]
-            if candidate == "" or candidate not in used:
-                st.session_state.choices[player] = candidate
-                break
-        st.experimental_rerun()
+
+    with cols[i]:
+        st.markdown(f"""
+            <div style='text-align:center; padding:1em; border-radius:10px;
+            background-color:{color}; color:white; font-size:18px; margin-bottom:0.5em'>
+                {emoji} <b>{player}</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+        if st.button(f"Mudar {player}", key=f"btn_{player}"):
+            current = label
+            used = set(st.session_state.choices.values())
+            current_idx = LABELS.index(current)
+            for offset in range(1, len(LABELS)):
+                candidate = LABELS[(current_idx + offset) % len(LABELS)]
+                if candidate == "" or candidate not in used:
+                    st.session_state.choices[player] = candidate
+                    break
 
 # Confirmar somente se 3 rótulos estiverem atribuídos corretamente
 if set(st.session_state.choices.values()) == {"Start", "Bench", "Drop"}:
