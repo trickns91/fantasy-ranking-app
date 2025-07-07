@@ -37,7 +37,8 @@ if not st.session_state["user"]:
     for i, name in enumerate(usuarios):
         if cols[i % 4].button(name):
             st.session_state["user"] = name
-            st.experimental_rerun()
+            st.session_state["authenticated"] = False
+            st.rerun()
 
 # Autenticação
 if st.session_state["user"] and not st.session_state["authenticated"]:
@@ -45,7 +46,7 @@ if st.session_state["user"] and not st.session_state["authenticated"]:
     senha = st.text_input(f"Digite a senha para {user}:", type="password")
     if senha == usuarios[user]:
         st.session_state["authenticated"] = True
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.stop()
 
@@ -62,8 +63,8 @@ for i, pos in enumerate(positions):
         cols[i].button(pos, disabled=True)
     else:
         if cols[i].button(pos):
-            st.session_state["position"] = pos
-            st.experimental_rerun()
+        st.session_state["position"] = pos
+        st.rerun()
 
 position = st.session_state["position"]
 
@@ -105,6 +106,6 @@ for player in trio:
             progress["preferences"].append((player, outro))
             progress["history"].append(tuple(sorted((player, outro))))
         save_user_progress(user, position, progress)
-        st.experimental_rerun()
+        st.rerun()
 
 st.write(f"Progresso: {len(progress['history'])} comparações feitas")
