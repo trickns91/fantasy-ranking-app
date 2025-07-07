@@ -1,52 +1,43 @@
-import pandas as pd
+from collections import Counter, defaultdict
 import random
-import os
-import json
 
-DATA_DIR = "data"
-PROGRESS_DIR = "progress"
-os.makedirs(PROGRESS_DIR, exist_ok=True)
+def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None):
+    if not tiers:
+        tiers = {p: 1 for p in players}  # fallback: tudo tier 1
 
-def load_players(position):
-    path = f"{DATA_DIR}/{position}.csv"
-    df = pd.read_csv(path)
-    return df.head(32 if position in ["QB", "TE"] else 100)
-
-def load_user_progress(user, position):
-    path = f"{PROGRESS_DIR}/{user}_{position}.json"
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return None
-
-def save_user_progress(user, position, data):
-    path = f"{PROGRESS_DIR}/{user}_{position}.json"
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-
-def get_next_trio_heuristic(remaining, preferences, history, k=4):
-    from collections import Counter
-
-    # Contar quantas vezes cada jogador já apareceu como preferido
-    count = Counter()
+    # Contar comparações por jogador
+    counts = Counter()
     for a, b in preferences:
-        count[a] += 1
-        count[b] += 0  # garante presença
+        counts[a] += 1
+        counts[b] += 1
 
-    # Jogadores com menos comparações recebem prioridade
-    sorted_players = sorted(remaining, key=lambda x: count[x])
+    # Organizar jogadores por tier
+    tier_groups = defaultdict(list)
+    for p in players:
+        tier = tiers.get(p, 99)
+        tier_groups[tier].append(p)
 
-    # Evitar trios repetidos do histórico
-    attempts = 0
-    while attempts < 2000:
-        candidates = sorted_players[:max(k * 3, k + 3)]  # grupo mais amplo
-        sample = tuple(sorted(random.sample(candidates, k)))
-        if sample not in history:
-            return sample
-        attempts += 1
+    # Ordenar tiers do melhor (1) ao pior
+    for tier in sorted(tier_groups):
+        grupo_tier = tier_groups[tier]
+        grupo_restante = [p for p in grupo_tier if tuple(sorted((p,))) not in history]
 
-    # Fallback: sorteia de todos se não achar inédito
-    while True:
-        trio = tuple(sorted(random.sample(remaining, k)))
-        if trio not in history:
-            return trio
+        if len(grupo_restante) >= k:
+            candidatos = sorted(grupo_restante, key=lambda x: counts[x])[:12]  # evitar sempre os mesmos
+            random.shuffle(candidatos)
+            return candidatos[:k]
+
+    # Se todos os tiers já foram trabalhados, sortear entre tiers
+    candidatos = sorted(players, key=lambda x: counts[x])[:20]
+    random.shuffle(candidatos)
+    tentativa = tuple(sorted(candidatos[:k]))
+    if tentativa not in history:
+        return list(tentativa)
+
+    # fallback final
+    for _ in range(100):
+        tentativa = tuple(sorted(random.sample(players, k)))
+        if tentativa not in history:
+            return list(tentativa)
+
+    return []  # nada novo encontrado
