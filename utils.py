@@ -1,5 +1,31 @@
+import os
+import pandas as pd
+import json
 from collections import Counter, defaultdict
 import random
+
+DATA_PATH = "data"
+USER_DATA_PATH = "user_data"
+
+def load_players(position):
+    df = pd.read_csv(f"{DATA_PATH}/{position}.csv")
+    df["TIERS"] = pd.to_numeric(df["TIERS"], errors="coerce").fillna(99).astype(int)
+    return df
+
+def load_user_progress(user, position):
+    os.makedirs(USER_DATA_PATH, exist_ok=True)
+    path = f"{USER_DATA_PATH}/{user}_{position}.json"
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    else:
+        return {"preferences": [], "history": []}
+
+def save_user_progress(user, position, progress):
+    os.makedirs(USER_DATA_PATH, exist_ok=True)
+    path = f"{USER_DATA_PATH}/{user}_{position}.json"
+    with open(path, "w") as f:
+        json.dump(progress, f)
 
 def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None):
     if not tiers:
@@ -23,7 +49,7 @@ def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None):
         grupo_restante = [p for p in grupo_tier if tuple(sorted((p,))) not in history]
 
         if len(grupo_restante) >= k:
-            candidatos = sorted(grupo_restante, key=lambda x: counts[x])[:12]  # evitar sempre os mesmos
+            candidatos = sorted(grupo_restante, key=lambda x: counts[x])[:12]
             random.shuffle(candidatos)
             return candidatos[:k]
 
