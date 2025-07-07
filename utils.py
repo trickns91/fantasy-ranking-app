@@ -51,4 +51,9 @@ def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, excl
     if len(candidates) < k:
         return None
 
-    return random.sample(candidates, k)
+    random.shuffle(candidates)
+    for i in range(len(candidates) - k + 1):
+        trio = candidates[i:i+k]
+        if not any(p in exclude for p in trio):
+            return trio
+    return None
