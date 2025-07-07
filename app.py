@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import networkx as nx
 from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic, get_recent_players
 
 st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
@@ -20,6 +21,7 @@ if "user" not in st.session_state:
         if cols[i % 4].button(name):
             st.session_state["user"] = name
             st.session_state["authenticated"] = False
+            st.session_state["pagina"] = "comparar"
             st.rerun()
     st.stop()
 
@@ -40,6 +42,7 @@ cols = st.columns(4)
 for i, pos in enumerate(posicoes):
     if cols[i].button(pos):
         st.session_state["position"] = pos
+        st.session_state["pagina"] = "comparar"
         st.rerun()
 
 if "position" not in st.session_state:
@@ -53,33 +56,53 @@ all_players = all_players_df["PLAYER NAME"].tolist()
 progress = load_user_progress(user, position)
 recent_players = get_recent_players(progress["history"], max_recent=6)
 
+# Progresso
+comparacoes = len(set(tuple(sorted(pair)) for pair in progress["history"] if isinstance(pair, (list, tuple)) and len(pair) == 2))
+total_necessarias = len(all_players) * 2
+percentual = int(100 * comparacoes / total_necessarias)
+
+st.markdown(f"### 📊 Progresso de {user} em {position}: {percentual}% ({comparacoes} de {total_necessarias})")
+
+if st.button("🔍 Ver prévia do ranking"):
+    st.session_state["pagina"] = "previa"
+    st.rerun()
+
+if st.session_state.get("pagina") == "previa":
+    st.subheader("🔍 Prévia do Ranking")
+    G = nx.DiGraph()
+    for vencedor, perdedor in progress["preferences"]:
+        G.add_edge(vencedor, perdedor)
+    ranking = list(nx.topological_sort(G)) if nx.is_directed_acyclic_graph(G) else []
+    if ranking:
+        for i, nome in enumerate(ranking):
+            st.markdown(f"**{i+1}. {nome}**")
+    else:
+        st.info("Ainda não há comparações suficientes para gerar ranking.")
+    if st.button("⬅️ Voltar para comparações"):
+        st.session_state["pagina"] = "comparar"
+        st.rerun()
+    st.stop()
+
+# Comparação
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
 st.markdown(f"### 🔢 Comparação - {position}")
-
 if not trio:
     st.success("Todas as comparações necessárias foram feitas!")
     st.stop()
 
 st.markdown("**Quem vale mais na Brain League, para você?**")
-
 for player in trio:
     if st.button(player):
         outros = [p for p in trio if p != player]
         for p in outros:
-            progress["preferences"].append([player, p])
-            progress["history"].append(tuple(sorted([player, p])))
+            if [player, p] not in progress["preferences"]:
+                progress["preferences"].append([player, p])
+            if tuple(sorted([player, p])) not in progress["history"]:
+                progress["history"].append(tuple(sorted([player, p])))
         save_user_progress(user, position, progress)
         st.rerun()
-
-# Progresso
-comparacoes = sum(1 for pair in progress["history"] if isinstance(pair, (list, tuple)) and len(pair) == 2)
-total_necessarias = len(all_players) * 2
-percentual = int(100 * comparacoes / total_necessarias)
-
-st.write(f"Progresso: {percentual}% ({comparacoes} de {total_necessarias} comparações)")
-st.button("🔍 Ver prévia do ranking")
 
 # Reset ranking
 with st.expander("🔁 Resetar ranking"):
