@@ -77,40 +77,58 @@ if len(progress["ranked"]) >= len(all_players):
 remaining = [p for p in all_players if p not in progress["ranked"]]
 trio = get_next_trio(remaining, progress["history"], progress["scores"])
 
-# Inicializar escolhas se não existirem
+# Inicializar ou atualizar as escolhas
 if "choices" not in st.session_state or set(st.session_state.choices.keys()) != set(trio):
     st.session_state.choices = {p: "" for p in trio}
 
-st.subheader("🟢 Clique em cada botão para rotacionar: Start → Bench → Drop → ⚪")
+choices = st.session_state.choices
+
+# Atualiza automaticamente o terceiro status se dois já foram definidos
+used_statuses = [v for v in choices.values() if v]
+if len(used_statuses) == 2:
+    remaining_status = [s for s in ["Start", "Bench", "Drop"] if s not in used_statuses][0]
+    for p in trio:
+        if choices[p] == "":
+            choices[p] = remaining_status
+
+st.subheader("🟢 Clique no nome do jogador para rotacionar a escolha")
 
 cols = st.columns(3)
 for i, player in enumerate(trio):
-    label = st.session_state.choices[player]
-    color = LABEL_COLORS[label]
+    label = choices[player]
     emoji = LABEL_EMOJIS[label]
+    color = LABEL_COLORS[label]
 
     with cols[i]:
         st.markdown(f"""
-            <div style='text-align:center; padding:1em; border-radius:10px;
-            background-color:{color}; color:white; font-size:18px; margin-bottom:0.5em'>
-                {emoji} <b>{player}</b>
+            <div style='text-align:center; font-size:20px; font-weight:bold;
+                        color:{color}; margin-bottom:0.5em'>
+                {emoji} {label if label else "Sem escolha"}
             </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"Mudar {player}", key=f"btn_{player}"):
-            current = label
-            used = set(st.session_state.choices.values())
+        if st.button(player, key=f"btn_{player}"):
+            current = choices[player]
+            used = set(v for k, v in choices.items() if k != player)
             current_idx = LABELS.index(current)
             for offset in range(1, len(LABELS)):
                 candidate = LABELS[(current_idx + offset) % len(LABELS)]
                 if candidate == "" or candidate not in used:
-                    st.session_state.choices[player] = candidate
+                    choices[player] = candidate
+                    # Se agora houver 2 definidos, já preenche o 3º
+                    filled = [v for v in choices.values() if v]
+                    if len(filled) == 2:
+                        rem_status = [s for s in ["Start", "Bench", "Drop"] if s not in filled][0]
+                        for pp in trio:
+                            if choices[pp] == "":
+                                choices[pp] = rem_status
                     break
+            st.experimental_rerun()
 
-# Confirmar somente se 3 rótulos estiverem atribuídos corretamente
-if set(st.session_state.choices.values()) == {"Start", "Bench", "Drop"}:
+# Confirmar se todos os status estão definidos
+if set(choices.values()) == {"Start", "Bench", "Drop"}:
     if st.button("✅ Confirmar escolha e continuar"):
-        for player, label in st.session_state.choices.items():
+        for player, label in choices.items():
             score = {"Start": 3, "Bench": 2, "Drop": 1}[label]
             progress["scores"][player] = progress["scores"].get(player, 0) + score
             if player not in progress["ranked"]:
