@@ -63,8 +63,8 @@ for i, pos in enumerate(positions):
         cols[i].button(pos, disabled=True)
     else:
         if cols[i].button(pos):
-        st.session_state["position"] = pos
-        st.rerun()
+            st.session_state["position"] = pos
+            st.rerun()
 
 position = st.session_state["position"]
 
