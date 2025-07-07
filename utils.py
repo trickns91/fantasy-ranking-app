@@ -9,7 +9,12 @@ USER_DATA_DIR = "user_data"
 def load_players(position):
     file_path = os.path.join(DATA_DIR, f"{position}.csv")
     df = pd.read_csv(file_path)
-    return df.head(100 if position in ["RB", "WR"] else 32)
+    if position in ["RB", "WR"]:
+        return df.head(100)
+    elif position in ["QB", "TE"]:
+        return df.head(24)
+    else:
+        return df
 
 def load_user_progress(user, position):
     os.makedirs(USER_DATA_DIR, exist_ok=True)
