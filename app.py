@@ -1,5 +1,5 @@
+
 import streamlit as st
-import random
 import networkx as nx
 import pandas as pd
 from utils import (
@@ -9,7 +9,6 @@ from utils import (
 
 st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
 
-# Usuários e senhas
 usuarios = {
     "Patrick": "", "Wendell": "471725", "Edu": "903152", "TTU": "235817",
     "Gian": "582034", "Behs": "710394", "Lorenzo": "839124", "Alessandro": "294035",
@@ -18,7 +17,7 @@ usuarios = {
 
 st.title("🏈 Brain League Rankings")
 
-# === Etapa 1: Seleção de usuário ===
+# Etapa 1 - seleção de usuário
 if "user" not in st.session_state:
     st.subheader("Escolha seu nome:")
     cols = st.columns(4)
@@ -32,7 +31,7 @@ if "user" not in st.session_state:
 
 user = st.session_state["user"]
 
-# === Etapa 2: Autenticação ===
+# Etapa 2 - autenticação
 if not st.session_state.get("authenticated", False):
     senha = st.text_input(f"Digite a senha para {user}:", type="password")
     if senha == usuarios[user]:
@@ -41,7 +40,7 @@ if not st.session_state.get("authenticated", False):
     else:
         st.stop()
 
-# === Etapa 3: Escolha da posição ===
+# Etapa 3 - seleção de posição
 st.subheader(f"Olá, {user}! Escolha a posição para ranquear:")
 posicoes = ["QB", "RB", "WR", "TE"]
 cols = st.columns(4)
@@ -58,18 +57,17 @@ position = st.session_state["position"]
 all_players_df = load_players(position)
 all_players = all_players_df["PLAYER NAME"].tolist()
 
-# === Etapa 4: Carregamento de progresso ===
+# Etapa 4 - progresso do usuário
 progress = load_user_progress(user, position)
 recent_players = get_recent_players(progress["history"], max_recent=6)
 
-# === Progresso ===
 comparacoes = len(set(tuple(sorted(pair)) for pair in progress["history"] if len(pair) == 2))
 total_necessarias = len(all_players) * 2
 percentual = int(100 * comparacoes / total_necessarias)
 
 st.markdown(f"### 📊 Progresso de {user} em {position}: {percentual}% ({comparacoes} de {total_necessarias})")
 
-if st.button("🔍 Ver prévia do ranking"):
+if st.button("🔍 Ver prévia do ranking", key="ver_previa"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
@@ -94,7 +92,6 @@ if st.session_state.get("pagina") == "previa":
         for vencedor, _ in progress["preferences"]:
             scores[vencedor] += 1
 
-        # Tiers por diferença de score
         sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         tier_map = {}
         current_tier = 1
@@ -109,38 +106,33 @@ if st.session_state.get("pagina") == "previa":
             tiered.append((player, current_tier))
             last_score = score
 
-       # Blocos por Tier
-st.markdown("## 📦 Jogadores por Tier")
-for tier_num in sorted(set(t for _, t in tiered)):
-    st.markdown(f"### 🎯 Tier {tier_num}")
-    st.write("| Rank | Jogador | Δ FP |")
-    for player, tier in tiered:
-        if tier != tier_num:
-            continue
-        rank = ranking.index(player) + 1
-        delta = fantasypros_rank.get(player, len(all_players)) - rank
-        emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-        st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
+        st.markdown("## 📦 Jogadores por Tier")
+        for tier_num in sorted(set(t for _, t in tiered)):
+            st.markdown(f"### 🎯 Tier {tier_num}")
+            st.write("| Rank | Jogador | Δ FP |")
+            for player, tier in tiered:
+                if tier != tier_num:
+                    continue
+                rank = ranking.index(player) + 1
+                delta = fantasypros_rank.get(player, len(all_players)) - rank
+                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
+                st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
 
-        # Exportar CSV ainda pode ser útil
-        if st.button("⬇️ Baixar ranking em CSV"):
+        if st.button("⬇️ Baixar ranking em CSV", key="baixar_csv"):
             df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
             df_export["Rank"] = df_export.index + 1
             df_export["Tier"] = df_export["PLAYER NAME"].map(tier_map)
             df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
             st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'),
                                file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
-
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
 
-    if st.button("⬅️ Voltar para comparações"):
+    if st.button("⬅️ Voltar para comparações", key="voltar_comp"):
         st.session_state["pagina"] = "comparar"
         st.rerun()
-
     st.stop()
 
-# === Página de comparações ===
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
@@ -162,7 +154,6 @@ for player in trio:
         save_user_progress(user, position, progress)
         st.rerun()
 
-# === Reset ===
 with st.expander("🔁 Resetar ranking"):
     senha_reset = st.text_input(f"Digite sua senha para confirmar o reset de {position}:", type="password")
     if st.button("Confirmar reset"):
