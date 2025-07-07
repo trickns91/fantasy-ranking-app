@@ -26,7 +26,6 @@ def save_user_progress(user, position, data):
         json.dump(data, f)
 
 def get_recent_players(history, max_recent=6):
-    """Retorna os jogadores que participaram das últimas comparações."""
     recent_flat = [p for pair in history[-max_recent:] for p in pair]
     return list(set(recent_flat))
 
@@ -34,9 +33,9 @@ def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, excl
     if exclude is None:
         exclude = []
 
+    history_pairs = set(tuple(sorted(pair)) for pair in history)
     all_pairs = set(tuple(sorted([a, b])) for i, a in enumerate(players) for b in players[i + 1:] if a != b)
-    done_pairs = set(history)
-    remaining_pairs = all_pairs - done_pairs
+    remaining_pairs = all_pairs - history_pairs
 
     unused = [p for p in players if any(p in pair for pair in remaining_pairs)]
     candidates = [p for p in unused if p not in exclude]
