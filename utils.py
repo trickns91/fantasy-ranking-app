@@ -1,59 +1,81 @@
-import os
 import pandas as pd
-import json
+import os
 import random
+import json
 
-DATA_DIR = "data"
-USER_DATA_DIR = "user_data"
+DATA_FOLDER = "data"
+SAVE_FOLDER = "progress"
 
 def load_players(position):
-    file_path = os.path.join(DATA_DIR, f"{position}.csv")
-    df = pd.read_csv(file_path)
-    if position in ["RB", "WR"]:
-        return df.head(100)
-    elif position in ["QB", "TE"]:
-        return df.head(24)
-    else:
-        return df
+    filepath = os.path.join(DATA_FOLDER, f"{position}.csv")
+    df = pd.read_csv(filepath)
+    df = df.dropna(subset=["PLAYER NAME"])
+    df = df.head({
+        "QB": 24,
+        "RB": 100,
+        "WR": 100,
+        "TE": 24
+    }[position])
+    return df
+
+def save_user_progress(user, position, progress):
+    os.makedirs(SAVE_FOLDER, exist_ok=True)
+    filepath = os.path.join(SAVE_FOLDER, f"{user}_{position}.json")
+    with open(filepath, "w") as f:
+        json.dump(progress, f)
 
 def load_user_progress(user, position):
-    os.makedirs(USER_DATA_DIR, exist_ok=True)
-    file_path = os.path.join(USER_DATA_DIR, f"{user}_{position}.json")
-    if os.path.exists(file_path):
-        with open(file_path, "r") as f:
+    filepath = os.path.join(SAVE_FOLDER, f"{user}_{position}.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
             return json.load(f)
-    return {"preferences": [], "history": [], "ranked": []}
-
-def save_user_progress(user, position, data):
-    os.makedirs(USER_DATA_DIR, exist_ok=True)
-    file_path = os.path.join(USER_DATA_DIR, f"{user}_{position}.json")
-    with open(file_path, "w") as f:
-        json.dump(data, f)
+    else:
+        return {"preferences": [], "history": [], "ranked": []}
 
 def get_recent_players(history, max_recent=6):
-    recent_flat = [p for pair in history[-max_recent:] for p in pair]
-    return list(set(recent_flat))
+    flat = [p for pair in history[-max_recent:] for p in pair]
+    return list(set(flat))
 
 def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, exclude=None):
-    if exclude is None:
+    if not exclude:
         exclude = []
 
-    history_pairs = set(tuple(sorted(pair)) for pair in history)
-    all_pairs = set(tuple(sorted([a, b])) for i, a in enumerate(players) for b in players[i + 1:] if a != b)
-    remaining_pairs = all_pairs - history_pairs
+    all_pairs = {(a, b) for a in players for b in players if a != b}
+    done_pairs = set(tuple(sorted(pair)) for pair in history)
+    remaining_pairs = list(all_pairs - done_pairs)
 
-    unused = [p for p in players if any(p in pair for pair in remaining_pairs)]
-    candidates = [p for p in unused if p not in exclude]
+    score = {p: 0 for p in players}
+    for a, b in preferences:
+        score[a] += 1
 
-    if len(candidates) < k:
-        candidates = [p for p in players if p not in exclude]
+    # Mapear jogadores por tier
+    if tiers:
+        tier_map = {}
+        for i, p in enumerate(players):
+            try:
+                tier_map.setdefault(int(tiers[i]), []).append(p)
+            except:
+                continue
+        sorted_tiers = sorted(tier_map.keys())
+        for tier in sorted_tiers:
+            candidates = tier_map[tier]
+            trio = get_trio_from_pool(candidates, preferences, history, exclude, k)
+            if trio:
+                return trio
 
-    if len(candidates) < k:
-        return None
+    # Fallback total
+    return get_trio_from_pool(players, preferences, history, exclude, k)
 
-    random.shuffle(candidates)
-    for i in range(len(candidates) - k + 1):
-        trio = candidates[i:i+k]
-        if not any(p in exclude for p in trio):
-            return trio
+def get_trio_from_pool(pool, preferences, history, exclude, k):
+    attempts = 100
+    tried = set()
+    for _ in range(attempts):
+        trio = tuple(sorted(random.sample(pool, k)))
+        if any(p in exclude for p in trio):
+            continue
+        pairings = set(tuple(sorted((a, b))) for i, a in enumerate(trio) for b in trio[i+1:])
+        if not pairings.issubset(set(history)):
+            if trio not in tried:
+                return list(trio)
+        tried.add(trio)
     return None
