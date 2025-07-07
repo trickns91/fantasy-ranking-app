@@ -42,17 +42,7 @@ if not st.session_state.authenticated:
             st.experimental_rerun()
         else:
             st.error("Senha incorreta.")
-    st.stop()
-    else:
-        st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
-        pwd = st.text_input("Senha (6 dígitos)", type="password")
-        if st.button("Entrar"):
-            if USERS[st.session_state.user_selected] == pwd:
-                st.session_state.authenticated = True
-                st.experimental_rerun()
-            else:
-                st.error("Senha incorreta.")
-        st.stop()
+
 
 user = st.session_state.user_selected
 position = st.selectbox("Escolha a posição para ranquear:", ["QB", "RB", "WR", "TE"])
