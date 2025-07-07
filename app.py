@@ -109,19 +109,18 @@ if st.session_state.get("pagina") == "previa":
             tiered.append((player, current_tier))
             last_score = score
 
-        # Blocos por Tier
-        st.markdown("## 📦 Jogadores por Tier")
-        for tier_num in sorted(set(t for _, t in tiered)):
-            st.markdown(f"### 🎯 Tier {tier_num}")
-            st.write("| Rank | Jogador | Δ FP |")
-            st.write("|------|---------|------|")
-            for player, tier in tiered:
-                if tier != tier_num:
-                    continue
-                rank = ranking.index(player) + 1
-                delta = fantasypros_rank.get(player, len(all_players)) - rank
-                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-                st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
+       # Blocos por Tier
+st.markdown("## 📦 Jogadores por Tier")
+for tier_num in sorted(set(t for _, t in tiered)):
+    st.markdown(f"### 🎯 Tier {tier_num}")
+    st.write("| Rank | Jogador | Δ FP |")
+    for player, tier in tiered:
+        if tier != tier_num:
+            continue
+        rank = ranking.index(player) + 1
+        delta = fantasypros_rank.get(player, len(all_players)) - rank
+        emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
+        st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
 
         # Exportar CSV ainda pode ser útil
         if st.button("⬇️ Baixar ranking em CSV"):
