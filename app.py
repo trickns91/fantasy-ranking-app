@@ -25,26 +25,31 @@ usuarios = {
 
 positions = ["QB", "RB", "WR", "TE"]
 
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
 # Seleção de usuário
-st.subheader("Quem é você?")
-cols = st.columns(4)
-selected_user = None
-for i, name in enumerate(usuarios):
-    if cols[i % 4].button(name):
-        st.session_state["user"] = name
-        st.session_state["authenticated"] = False
-        st.experimental_rerun()
+if not st.session_state["user"]:
+    st.subheader("Quem é você?")
+    cols = st.columns(4)
+    for i, name in enumerate(usuarios):
+        if cols[i % 4].button(name):
+            st.session_state["user"] = name
+            st.experimental_rerun()
 
 # Autenticação
-if "user" in st.session_state:
+if st.session_state["user"] and not st.session_state["authenticated"]:
     user = st.session_state["user"]
-    if not st.session_state.get("authenticated"):
-        senha = st.text_input(f"Digite a senha para {user}:", type="password")
-        if senha == usuarios[user]:
-            st.session_state["authenticated"] = True
-            st.experimental_rerun()
-        else:
-            st.stop()
+    senha = st.text_input(f"Digite a senha para {user}:", type="password")
+    if senha == usuarios[user]:
+        st.session_state["authenticated"] = True
+        st.experimental_rerun()
+    else:
+        st.stop()
+
+user = st.session_state["user"]
 
 # Posição
 if "position" not in st.session_state:
@@ -61,7 +66,6 @@ for i, pos in enumerate(positions):
             st.experimental_rerun()
 
 position = st.session_state["position"]
-user = st.session_state["user"]
 
 players_df = load_players(position)
 all_players = players_df["PLAYER NAME"].tolist()
