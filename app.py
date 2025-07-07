@@ -35,6 +35,7 @@ if not st.session_state.user_selected:
 if not st.session_state.authenticated:
     if st.session_state.user_selected == "Patrick":
         st.session_state.authenticated = True
+        st.stop()
     else:
         st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
         pwd = st.text_input("Senha (6 dígitos)", type="password")
