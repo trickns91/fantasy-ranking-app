@@ -1,6 +1,7 @@
 import streamlit as st
 from utils import load_players, load_user_progress, save_user_progress, get_next_trio
 import pandas as pd
+import networkx as nx
 
 USERS = {
     "Wendell": "458638", "Edu": "233472", "TTU": "190597", "Patrick": "471725",
@@ -15,7 +16,6 @@ LABEL_COLORS = {"Start": "#4CAF50", "Bench": "#FFC107", "Drop": "#F44336", "": "
 st.set_page_config(page_title="Fantasy Football Ranking App", layout="wide")
 st.title("🏈 Fantasy Football Ranking App")
 
-# Etapa 1: Seleção do usuário
 if "user_selected" not in st.session_state:
     st.session_state.user_selected = None
 if "authenticated" not in st.session_state:
@@ -29,7 +29,6 @@ if not st.session_state.user_selected:
             st.session_state.user_selected = name
     st.stop()
 
-# Etapa 2: Autenticação por senha (exceto Patrick)
 if not st.session_state.authenticated:
     if st.session_state.user_selected == "Patrick":
         st.session_state.authenticated = True
@@ -44,26 +43,28 @@ if not st.session_state.authenticated:
                 st.error("Senha incorreta.")
         st.stop()
 
-# Etapa 3: Seleção da posição
 user = st.session_state.user_selected
 position = st.selectbox("Escolha a posição para ranquear:", ["QB", "RB", "WR", "TE"])
 players_df = load_players(position)
 all_players = players_df["PLAYER NAME"].tolist()
 
-# Carregar progresso
 if "progress" not in st.session_state:
     st.session_state.progress = load_user_progress(user, position) or {
-        "scores": {},
-        "history": [],
-        "ranked": []
+        "preferences": [],
+        "ranked": [],
+        "history": []
     }
 
 progress = st.session_state.progress
 
 if len(progress["ranked"]) >= len(all_players):
     st.success("Ranking completo!")
-    final_rank = sorted(progress["scores"].items(), key=lambda x: -x[1])
-    df_result = pd.DataFrame(final_rank, columns=["PLAYER NAME", "SCORE"])
+    G = nx.DiGraph()
+    G.add_nodes_from(all_players)
+    G.add_edges_from(progress["preferences"])
+    ranking = list(nx.topological_sort(G))
+    df_result = pd.DataFrame(ranking, columns=["PLAYER NAME"])
+    df_result["RANK"] = range(1, len(df_result) + 1)
     st.dataframe(df_result)
     st.download_button(
         "📥 Baixar ranking em CSV",
@@ -73,17 +74,13 @@ if len(progress["ranked"]) >= len(all_players):
     )
     st.stop()
 
-# Próximo trio
 remaining = [p for p in all_players if p not in progress["ranked"]]
-trio = get_next_trio(remaining, progress["history"], progress["scores"])
+trio = get_next_trio(remaining, progress["history"], all_players)
 
-# Inicializar ou atualizar as escolhas
 if "choices" not in st.session_state or set(st.session_state.choices.keys()) != set(trio):
     st.session_state.choices = {p: "" for p in trio}
 
 choices = st.session_state.choices
-
-# Atualiza automaticamente o terceiro status se dois já foram definidos
 used_statuses = [v for v in choices.values() if v]
 if len(used_statuses) == 2:
     remaining_status = [s for s in ["Start", "Bench", "Drop"] if s not in used_statuses][0]
@@ -115,7 +112,6 @@ for i, player in enumerate(trio):
                 candidate = LABELS[(current_idx + offset) % len(LABELS)]
                 if candidate == "" or candidate not in used:
                     choices[player] = candidate
-                    # Se agora houver 2 definidos, já preenche o 3º
                     filled = [v for v in choices.values() if v]
                     if len(filled) == 2:
                         rem_status = [s for s in ["Start", "Bench", "Drop"] if s not in filled][0]
@@ -124,14 +120,19 @@ for i, player in enumerate(trio):
                                 choices[pp] = rem_status
                     break
 
-# Confirmar se todos os status estão definidos
 if set(choices.values()) == {"Start", "Bench", "Drop"}:
     if st.button("✅ Confirmar escolha e continuar"):
-        for player, label in choices.items():
-            score = {"Start": 3, "Bench": 2, "Drop": 1}[label]
-            progress["scores"][player] = progress["scores"].get(player, 0) + score
-            if player not in progress["ranked"]:
-                progress["ranked"].append(player)
+        pairwise = []
+        start = [k for k, v in choices.items() if v == "Start"][0]
+        bench = [k for k, v in choices.items() if v == "Bench"][0]
+        drop = [k for k, v in choices.items() if v == "Drop"][0]
+        pairwise.extend([(start, bench), (start, drop), (bench, drop)])
+
+        for a, b in pairwise:
+            if (a, b) not in progress["preferences"]:
+                progress["preferences"].append((a, b))
+
+        progress["ranked"] += [p for p in trio if p not in progress["ranked"]]
         progress["history"].append(tuple(sorted(trio)))
         save_user_progress(user, position, progress)
         del st.session_state.choices
