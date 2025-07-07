@@ -30,8 +30,7 @@ if not st.session_state.user_selected:
         if cols[i % 4].button(name):
             st.session_state.user_selected = name
             st.session_state.confirm_reset = False
-            st.success("Ranking reiniciado com sucesso. Recarregue a página ou selecione novamente a posição.")
-st.stop()
+            st.experimental_rerun()
     st.stop()
 
 if not st.session_state.authenticated:
@@ -83,7 +82,8 @@ if st.session_state.confirm_reset:
                     "history": []
                 }
                 st.session_state.confirm_reset = False
-                st.experimental_rerun()
+                st.success("Ranking reiniciado com sucesso. Recarregue a página ou selecione novamente a posição.")
+                st.stop()
             else:
                 st.error("Senha incorreta para confirmação.")
 
