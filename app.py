@@ -107,27 +107,20 @@ if len(progress["ranked"]) >= len(all_players):
     st.stop()
 
 remaining = [p for p in all_players if p not in progress["ranked"]]
-grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=4)
+grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=3)
 
 st.subheader("Quem vale mais na Brain League, para você?")
 
-cols = st.columns(4)
-selected = None
-for i, player in enumerate(grupo):
-    with cols[i]:
-        if st.button(player):
-            selected = player
-            break
+for player in grupo:
+    if st.button(player, use_container_width=True):
+        others = [p for p in grupo if p != player]
+        for other in others:
+            if (player, other) not in progress["preferences"]:
+                progress["preferences"].append((player, other))
 
-if selected:
-    others = [p for p in grupo if p != selected]
-    for other in others:
-        if (selected, other) not in progress["preferences"]:
-            progress["preferences"].append((selected, other))
-
-    progress["history"].append(tuple(sorted(grupo)))
-    save_user_progress(user, position, progress)
-    st.experimental_rerun()
+        progress["history"].append(tuple(sorted(grupo)))
+        save_user_progress(user, position, progress)
+        st.experimental_rerun()
 
 # Exibir progresso
 num_total_trios = comb(len(all_players), 2)
