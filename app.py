@@ -1,152 +1,106 @@
 import streamlit as st
-from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic
 import pandas as pd
-import networkx as nx
 import os
-import json
-from math import comb
-from collections import Counter
+from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic
 
-USERS = {
-    "Wendell": "458638", "Edu": "233472", "TTU": "190597", "Patrick": "471725",
-    "Gian": "127917", "Behs": "955652", "Lorenzo": "824386", "Alessandro": "800506",
-    "TX": "620075", "Ricardo": "484772", "Ed": "709678", "Raphael": "611310"
+st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
+
+st.title("Brain League Rankings")
+
+# Lista fixa de usuários e senhas
+usuarios = {
+    "Patrick": "",
+    "Wendell": "471725",
+    "Edu": "830416",
+    "TTU": "617239",
+    "Gian": "952380",
+    "Behs": "314067",
+    "Lorenzo": "780392",
+    "Alessandro": "104785",
+    "TX": "569014",
+    "Ricardo": "209873",
+    "Ed": "398524",
+    "Raphael": "845730"
 }
 
-st.set_page_config(page_title="Fantasy Football Ranking App", layout="wide")
-st.title("🏈 Fantasy Football Ranking App")
+positions = ["QB", "RB", "WR", "TE"]
 
-if "user_selected" not in st.session_state:
-    st.session_state.user_selected = None
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "confirm_reset" not in st.session_state:
-    st.session_state.confirm_reset = False
+# Seleção de usuário
+st.subheader("Quem é você?")
+cols = st.columns(4)
+selected_user = None
+for i, name in enumerate(usuarios):
+    if cols[i % 4].button(name):
+        st.session_state["user"] = name
+        st.session_state["authenticated"] = False
+        st.experimental_rerun()
 
-if not st.session_state.user_selected:
-    st.subheader("Escolha seu nome:")
-    cols = st.columns(4)
-    for i, name in enumerate(USERS):
-        if cols[i % 4].button(name):
-            st.session_state.user_selected = name
-            st.session_state.confirm_reset = False
-            st.stop()
-    st.stop()
-
-if not st.session_state.authenticated:
-    st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
-    pwd = st.text_input("Senha (6 dígitos)", type="password")
-    if st.button("Entrar"):
-        if USERS[st.session_state.user_selected] == pwd or st.session_state.user_selected == "Patrick":
-            st.session_state.authenticated = True
+# Autenticação
+if "user" in st.session_state:
+    user = st.session_state["user"]
+    if not st.session_state.get("authenticated"):
+        senha = st.text_input(f"Digite a senha para {user}:", type="password")
+        if senha == usuarios[user]:
+            st.session_state["authenticated"] = True
             st.experimental_rerun()
         else:
-            st.error("Senha incorreta.")
-    st.stop()
+            st.stop()
 
+# Posição
+if "position" not in st.session_state:
+    st.session_state["position"] = "QB"
 
-user = st.session_state.user_selected
-position = st.selectbox("Escolha a posição para ranquear:", ["QB", "RB", "WR", "TE"])
+st.subheader("Escolha a posição:")
+cols = st.columns(len(positions))
+for i, pos in enumerate(positions):
+    if pos == st.session_state["position"]:
+        cols[i].button(pos, disabled=True)
+    else:
+        if cols[i].button(pos):
+            st.session_state["position"] = pos
+            st.experimental_rerun()
+
+position = st.session_state["position"]
+user = st.session_state["user"]
+
 players_df = load_players(position)
 all_players = players_df["PLAYER NAME"].tolist()
 
-# Recarrega sempre o progresso mais recente do disco
-progress = load_user_progress(user, position) or {
-    "preferences": [],
-    "ranked": [],
-    "history": []
-}
-st.session_state.progress = progress
+progress = load_user_progress(user, position)
 
-# Botões de reset e pular
-col1, col2 = st.columns(2)
-if col1.button("🔁 Resetar ranking"):
-    st.session_state.confirm_reset = True
-
-if st.session_state.confirm_reset:
-    with st.form(key="reset_form"):
-        st.warning(f"Tem certeza que quer zerar todas as informações de ranking de {position}?")
-        senha_confirma = st.text_input("Confirme sua senha para resetar:", type="password")
-        submit = st.form_submit_button("Confirmar reset")
-        if submit:
-            if USERS[user] == senha_confirma:
-                path = f"progress/{user}_{position}.json"
-                if os.path.exists(path):
-                    os.remove(path)
-                st.session_state.progress = {
-                    "preferences": [],
-                    "ranked": [],
-                    "history": []
-                }
-                st.session_state.confirm_reset = False
-                st.success("Ranking reiniciado com sucesso. Recarregue a página ou selecione novamente a posição.")
-                st.stop()
-            else:
-                st.error("Senha incorreta para confirmação.")
-
-if col2.button("⏭️ Pular grupo"):
-    trio_pulavel = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3)
-    if trio_pulavel:
-        progress["history"].append(tuple(sorted(trio_pulavel)))
+# Reset
+with st.expander("⚙️ Resetar ranking", expanded=False):
+    confirmar = st.checkbox(f"Tem certeza que quer zerar todas info de ranking de {position}?")
+    senha_reset = st.text_input("Digite sua senha para confirmar:", type="password")
+    if confirmar and senha_reset == usuarios[user]:
+        progress = {"preferences": [], "history": [], "ranked": []}
         save_user_progress(user, position, progress)
-        st.success("Grupo pulado com sucesso. Prossiga com a próxima comparação.")
+        st.success("Ranking resetado com sucesso.")
         st.stop()
 
-if len(progress["ranked"]) >= len(all_players):
+# Ranking finalizado?
+if len(progress.get("ranked", [])) >= len(all_players):
     st.success("Ranking completo!")
-    G = nx.DiGraph()
-    G.add_nodes_from(all_players)
-    G.add_edges_from(progress["preferences"])
-    ranking = list(nx.topological_sort(G))
-    df_result = pd.DataFrame(ranking, columns=["PLAYER NAME"])
-    df_result["RANK"] = range(1, len(df_result) + 1)
-    st.dataframe(df_result)
-    st.download_button(
-        "📥 Baixar ranking em CSV",
-        data=df_result.to_csv(index=False).encode("utf-8"),
-        file_name=f"{user}_{position}_ranking.csv",
-        mime="text/csv"
-    )
+    st.write("Resultado final:")
+    st.write(progress["ranked"])
     st.stop()
 
-remaining = [p for p in all_players if p not in progress["ranked"]]
-limite_comparacoes = int(0.12 * comb(len(all_players), 2))
-if len(progress["preferences"]) >= limite_comparacoes:
-    st.success("Você já respondeu comparações suficientes para gerar um ranking consistente!")
-    G = nx.DiGraph()
-    G.add_nodes_from(all_players)
-    G.add_edges_from(progress["preferences"])
-    ranking = list(nx.topological_sort(G))
-    df_result = pd.DataFrame(ranking, columns=["PLAYER NAME"])
-    df_result["RANK"] = range(1, len(df_result) + 1)
-    st.dataframe(df_result)
-    st.download_button(
-        "📥 Baixar ranking em CSV",
-        data=df_result.to_csv(index=False).encode("utf-8"),
-        file_name=f"{user}_{position}_ranking.csv",
-        mime="text/csv"
-    )
-    st.stop()
+# Pergunta
+tiers = players_df.set_index("PLAYER NAME")["TIERS"].to_dict()
+trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers)
 
-players_with_tiers = players_df.set_index("PLAYER NAME")["TIERS"].to_dict()
-grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=3, tiers=players_with_tiers)
+if not trio:
+    st.info("Não há mais combinações únicas para exibir.")
+    st.stop()
 
 st.subheader("Quem vale mais na Brain League, para você?")
-
-for player in grupo:
-    if st.button(player, use_container_width=True):
-        others = [p for p in grupo if p != player]
-        for other in others:
-            if (player, other) not in progress["preferences"]:
-                progress["preferences"].append((player, other))
-
-        progress["history"].append(tuple(sorted(grupo)))
+for player in trio:
+    if st.button(player):
+        outros = [p for p in trio if p != player]
+        for outro in outros:
+            progress["preferences"].append((player, outro))
+            progress["history"].append(tuple(sorted((player, outro))))
         save_user_progress(user, position, progress)
         st.experimental_rerun()
 
-# Exibir progresso
-num_total_trios = comb(len(all_players), 2)
-num_coletados = len(progress["preferences"])
-pct = num_coletados / num_total_trios * 100
-st.progress(min(pct / 100, 1.0))
-st.caption(f"{num_coletados} comparações feitas de {num_total_trios} possíveis (~{pct:.1f}%)")
+st.write(f"Progresso: {len(progress['history'])} comparações feitas")
