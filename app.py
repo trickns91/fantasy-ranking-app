@@ -17,27 +17,45 @@ USERS = {
     "Raphael": "611310"
 }
 
-LABELS = ["Start", "Bench", "Drop"]
+LABELS = ["", "Start", "Bench", "Drop"]
+COLORS = {
+    "": "gray",
+    "Start": "green",
+    "Bench": "orange",
+    "Drop": "red"
+}
 
 st.set_page_config(page_title="Fantasy Football Ranking App", layout="wide")
-st.title("🏈 Fantasy Football Ranking App - Clicável")
+st.title("🏈 Fantasy Football Ranking App")
 
+if "user_selected" not in st.session_state:
+    st.session_state.user_selected = None
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-if not st.session_state.authenticated:
-    name = st.text_input("Seu nome").strip()
-    pwd = st.text_input("Senha (6 dígitos)", type="password")
-    if st.button("Entrar"):
-        if name in USERS and USERS[name] == pwd:
-            st.session_state.authenticated = True
-            st.session_state.user = name
-            st.success("Acesso liberado!")
-        else:
-            st.error("Nome ou senha incorretos.")
+# Etapa 1: seleção do usuário
+if not st.session_state.user_selected:
+    st.subheader("Escolha seu nome:")
+    cols = st.columns(4)
+    names = list(USERS.keys())
+    for i, name in enumerate(names):
+        if cols[i % 4].button(name):
+            st.session_state.user_selected = name
     st.stop()
 
-user = st.session_state.user
+# Etapa 2: autenticação
+if not st.session_state.authenticated:
+    st.subheader(f"Olá, {st.session_state.user_selected}! Digite sua senha:")
+    pwd = st.text_input("Senha (6 dígitos)", type="password")
+    if st.button("Entrar"):
+        if USERS[st.session_state.user_selected] == pwd:
+            st.session_state.authenticated = True
+            st.success("Acesso liberado!")
+        else:
+            st.error("Senha incorreta.")
+    st.stop()
+
+user = st.session_state.user_selected
 position = st.selectbox("Escolha a posição para ranquear:", ["QB", "RB", "WR", "TE"])
 players_df = load_players(position)
 all_players = players_df["PLAYER NAME"].tolist()
@@ -59,42 +77,39 @@ if len(progress["ranked"]) >= len(all_players):
     st.download_button(
         "📥 Baixar ranking em CSV",
         data=df_result.to_csv(index=False).encode("utf-8"),
-        file_name=f"{st.session_state.user}_{position}_ranking.csv",
+        file_name=f"{user}_{position}_ranking.csv",
         mime="text/csv"
     )
     st.stop()
 
+# Gerar trio inteligente
 remaining = [p for p in all_players if p not in progress["ranked"]]
 trio = get_next_trio(remaining, progress["history"], progress["scores"])
-st.subheader("Clique para ordenar: Start → Bench → Drop")
 
 if "choices" not in st.session_state:
-    st.session_state.choices = {}
+    st.session_state.choices = {p: "" for p in trio}
 
-def next_label(current, used):
-    for label in LABELS:
-        if label not in used:
-            return label
-    return None
+st.subheader("Clique no botão de cada jogador para rotacionar: Start → Bench → Drop → Limpar")
 
 cols = st.columns(3)
-used_labels = set(st.session_state.choices.values())
-
 for i, player in enumerate(trio):
-    label = st.session_state.choices.get(player, "")
-    with cols[i]:
-        if st.button(f"{player}\n[{label}]" if label else player, key=player):
-            if label:
-                del st.session_state.choices[player]
-            else:
-                used = set(st.session_state.choices.values())
-                next_lbl = next_label("", used)
-                if next_lbl:
-                    st.session_state.choices[player] = next_lbl
-            st.experimental_rerun()
+    current = st.session_state.choices.get(player, "")
+    label = current if current else "Clique"
+    color = COLORS[current]
+    if cols[i].button(f"{player}\n[{label}]", key=player):
+        used = set(st.session_state.choices.values())
+        current_idx = LABELS.index(current)
+        next_idx = (current_idx + 1) % len(LABELS)
+        # Procurar próximo label disponível
+        for offset in range(1, len(LABELS)):
+            candidate = LABELS[(current_idx + offset) % len(LABELS)]
+            if candidate == "" or candidate not in used:
+                st.session_state.choices[player] = candidate
+                break
+        st.experimental_rerun()
 
-if set(st.session_state.choices.values()) == set(LABELS):
-    if st.button("Confirmar este ranking"):
+if set(st.session_state.choices.values()) == {"Start", "Bench", "Drop"}:
+    if st.button("Confirmar escolha"):
         for player, label in st.session_state.choices.items():
             score = {"Start": 3, "Bench": 2, "Drop": 1}[label]
             progress["scores"][player] = progress["scores"].get(player, 0) + score
