@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic
+from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic, get_recent_players
 
 st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
 
@@ -92,7 +92,8 @@ if len(progress.get("ranked", [])) >= len(all_players):
 
 # Pergunta
 tiers = players_df.set_index("PLAYER NAME")["TIERS"].to_dict()
-trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers)
+recent_players = get_recent_players(progress["history"], max_recent=6)
+trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
 if not trio:
     st.info("Não há mais combinações únicas para exibir.")
