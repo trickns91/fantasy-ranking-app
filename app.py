@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import networkx as nx
+import pandas as pd
 from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic, get_recent_players
 
 st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
@@ -67,6 +68,9 @@ if st.button("🔍 Ver prévia do ranking"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
+# -------------------------------
+# PRÉVIA DO RANKING
+# -------------------------------
 if st.session_state.get("pagina") == "previa":
     st.subheader("🔍 Prévia do Ranking")
     G = nx.DiGraph()
@@ -87,7 +91,6 @@ if st.session_state.get("pagina") == "previa":
         for vencedor, perdedor in progress["preferences"]:
             scores[vencedor] += 1
 
-        # Agrupar em tiers simples: 1 ponto de diferença = mesmo tier
         sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         tiers = []
         tier = []
@@ -111,24 +114,23 @@ if st.session_state.get("pagina") == "previa":
                 emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
                 st.write(f"| {ranking.index(nome)+1} | {nome} | {delta:+} {emoji} | ⭐ {score} |")
 
-    else:
-        st.info("Ainda não há comparações suficientes para gerar ranking.")
-
-    import pandas as pd
-
         if st.button("⬇️ Baixar ranking em CSV"):
             df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
             df_export["Rank"] = df_export.index + 1
             df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
-            st.download_button(.encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
-"📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'),
+                               file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+    else:
+        st.info("Ainda não há comparações suficientes para gerar ranking.")
 
-                        if st.button("⬅️ Voltar para comparações"):
-            st.session_state["pagina"] = "comparar"
-            st.rerun()
+    if st.button("⬅️ Voltar para comparações"):
+        st.session_state["pagina"] = "comparar"
+        st.rerun()
     st.stop()
 
-# Comparação
+# -------------------------------
+# COMPARAÇÃO
+# -------------------------------
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
@@ -149,7 +151,9 @@ for player in trio:
         save_user_progress(user, position, progress)
         st.rerun()
 
-# Reset ranking
+# -------------------------------
+# RESET RANKING
+# -------------------------------
 with st.expander("🔁 Resetar ranking"):
     if st.button("Confirmar reset"):
         senha_reset = st.text_input(f"Digite sua senha para confirmar o reset de {position}:", type="password")
