@@ -21,7 +21,7 @@ st.title("🏈 Brain League Rankings")
 # === Etapa 1: Seleção de usuário ===
 if "user" not in st.session_state:
     st.subheader("Escolha seu nome:")
-    cols = st.columns(4)
+cols = st.columns(2) if st.session_state.get("mobile", False) else st.columns(4)
     for i, name in enumerate(usuarios):
         if cols[i % 4].button(name):
             st.session_state["user"] = name
@@ -95,43 +95,34 @@ if st.session_state.get("pagina") == "previa":
         for vencedor, _ in progress["preferences"]:
             scores[vencedor] += 1
 
-        sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        tiers = []
-        tier = []
-        last_score = None
-        for player, score in sorted_players:
-            if last_score is None or abs(score - last_score) <= 1:
-                tier.append((player, score))
-            else:
-                tiers.append(tier)
-                tier = [(player, score)]
-            last_score = score
-        if tier:
-            tiers.append(tier)
+        df_ranking = pd.DataFrame({
+            "Rank": [ranking.index(p) + 1 for p in ranking],
+            "Jogador": ranking,
+            "Score": [scores.get(p, 0) for p in ranking],
+            "Δ FP": [
+                fantasypros_rank.get(p, len(all_players)) - ranking.index(p)
+                for p in ranking
+            ]
+        })
 
-        for t_idx, t in enumerate(tiers):
-            st.markdown(f"#### 🎯 Tier {t_idx+1}")
-            st.write("| Rank | Jogador | Δ FP | Score |")
-            st.write("|------|---------|------|-------|")
-            for idx, (nome, score) in enumerate(t):
-                try:
-                    delta = fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
-                except ValueError:
-                    delta = 0
-                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-                st.write(f"| {ranking.index(nome)+1} | {nome} | {delta:+} {emoji} | ⭐ {score} |")
+        df_ranking["Tendência"] = df_ranking["Δ FP"].apply(
+            lambda d: "🔺" if d > 0 else "🔻" if d < 0 else "➖"
+        )
+
+        st.dataframe(df_ranking[["Rank", "Jogador", "Score", "Δ FP", "Tendência"]],
+                     use_container_width=True)
 
         if st.button("⬇️ Baixar ranking em CSV"):
-            df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
-            df_export["Rank"] = df_export.index + 1
-            df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
-            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+            export = df_ranking.merge(all_players_df, on="Jogador", how="left")
+            st.download_button("📥 Download do Ranking", export.to_csv(index=False).encode('utf-8'),
+                               file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
 
     if st.button("⬅️ Voltar para comparações"):
         st.session_state["pagina"] = "comparar"
         st.rerun()
+
     st.stop()
 
 # === Página de comparações ===
