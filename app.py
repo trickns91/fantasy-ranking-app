@@ -120,12 +120,12 @@ if st.session_state.get("pagina") == "previa":
             df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
             df_export["Rank"] = df_export.index + 1
             df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
-            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+            st.download_button(.encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
 "📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
 
-                if st.button("⬅️ Voltar para comparações"):
+                        if st.button("⬅️ Voltar para comparações"):
             st.session_state["pagina"] = "comparar"
-        st.rerun()
+            st.rerun()
     st.stop()
 
 # Comparação
