@@ -123,7 +123,8 @@ for player in grupo:
 
         progress["history"].append(tuple(sorted(grupo)))
         save_user_progress(user, position, progress)
-        st.experimental_rerun()
+        st.success("Escolha registrada. Prossiga com a próxima comparação.")
+        st.stop()
 
 # Exibir progresso
 num_total_trios = comb(len(all_players), 2)
