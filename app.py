@@ -85,7 +85,11 @@ if st.session_state.confirm_reset:
                 st.error("Senha incorreta para confirmação.")
 
 if col2.button("⏭️ Pular grupo"):
-    progress["history"].append(tuple(sorted(get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=4))))
+    trio_pulavel = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3)
+    if trio_pulavel:
+        progress["history"].append(tuple(sorted(trio_pulavel)))
+        save_user_progress(user, position, progress)
+        st.experimental_rerun()
     save_user_progress(user, position, progress)
     st.experimental_rerun()
 
