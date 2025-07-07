@@ -108,4 +108,11 @@ for player in trio:
         save_user_progress(user, position, progress)
         st.rerun()
 
-st.write(f"Progresso: {len(progress['history'])} comparações feitas")
+comparacoes = len(progress['history'])
+total_necessarias = len(all_players) * 2  # ajustar conforme desejado
+percentual = int(100 * comparacoes / total_necessarias)
+st.write(f"Progresso: {percentual}% ({comparacoes} comparações de {total_necessarias})")
+
+if percentual >= 25:
+    if st.button("🔍 Ver prévia do ranking"):
+        st.write("[Prévia do ranking ainda não implementada]")
