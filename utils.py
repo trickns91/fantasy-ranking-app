@@ -1,73 +1,50 @@
 import os
 import pandas as pd
 import json
-from collections import Counter, defaultdict
 import random
 
-DATA_PATH = "data"
-USER_DATA_PATH = "user_data"
+DATA_DIR = "data"
+USER_DATA_DIR = "user_data"
 
 def load_players(position):
-    df = pd.read_csv(f"{DATA_PATH}/{position}.csv")
-    df["TIERS"] = pd.to_numeric(df["TIERS"], errors="coerce").fillna(99).astype(int)
-    return df
+    file_path = os.path.join(DATA_DIR, f"{position}.csv")
+    df = pd.read_csv(file_path)
+    return df.head(100 if position in ["RB", "WR"] else 32)
 
 def load_user_progress(user, position):
-    os.makedirs(USER_DATA_PATH, exist_ok=True)
-    path = f"{USER_DATA_PATH}/{user}_{position}.json"
-    if os.path.exists(path):
-        with open(path, "r") as f:
+    os.makedirs(USER_DATA_DIR, exist_ok=True)
+    file_path = os.path.join(USER_DATA_DIR, f"{user}_{position}.json")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
             return json.load(f)
-    else:
-        return {
-            "preferences": [],
-            "history": [],
-            "ranked": []
-        }
+    return {"preferences": [], "history": [], "ranked": []}
 
-def save_user_progress(user, position, progress):
-    os.makedirs(USER_DATA_PATH, exist_ok=True)
-    path = f"{USER_DATA_PATH}/{user}_{position}.json"
-    with open(path, "w") as f:
-        json.dump(progress, f)
+def save_user_progress(user, position, data):
+    os.makedirs(USER_DATA_DIR, exist_ok=True)
+    file_path = os.path.join(USER_DATA_DIR, f"{user}_{position}.json")
+    with open(file_path, "w") as f:
+        json.dump(data, f)
 
-def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None):
-    if not tiers:
-        tiers = {p: 1 for p in players}  # fallback: tudo tier 1
+def get_recent_players(history, max_recent=6):
+    """Retorna os jogadores que participaram das últimas comparações."""
+    recent_flat = [p for pair in history[-max_recent:] for p in pair]
+    return list(set(recent_flat))
 
-    # Contar comparações por jogador
-    counts = Counter()
-    for a, b in preferences:
-        counts[a] += 1
-        counts[b] += 1
+def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, exclude=None):
+    if exclude is None:
+        exclude = []
 
-    # Organizar jogadores por tier
-    tier_groups = defaultdict(list)
-    for p in players:
-        tier = tiers.get(p, 99)
-        tier_groups[tier].append(p)
+    all_pairs = set(tuple(sorted([a, b])) for i, a in enumerate(players) for b in players[i + 1:] if a != b)
+    done_pairs = set(history)
+    remaining_pairs = all_pairs - done_pairs
 
-    # Ordenar tiers do melhor (1) ao pior
-    for tier in sorted(tier_groups):
-        grupo_tier = tier_groups[tier]
-        grupo_restante = [p for p in grupo_tier if tuple(sorted((p,))) not in history]
+    unused = [p for p in players if any(p in pair for pair in remaining_pairs)]
+    candidates = [p for p in unused if p not in exclude]
 
-        if len(grupo_restante) >= k:
-            candidatos = sorted(grupo_restante, key=lambda x: counts[x])[:12]
-            random.shuffle(candidatos)
-            return candidatos[:k]
+    if len(candidates) < k:
+        candidates = [p for p in players if p not in exclude]
 
-    # Se todos os tiers já foram trabalhados, sortear entre tiers
-    candidatos = sorted(players, key=lambda x: counts[x])[:20]
-    random.shuffle(candidatos)
-    tentativa = tuple(sorted(candidatos[:k]))
-    if tentativa not in history:
-        return list(tentativa)
+    if len(candidates) < k:
+        return None
 
-    # fallback final
-    for _ in range(100):
-        tentativa = tuple(sorted(random.sample(players, k)))
-        if tentativa not in history:
-            return list(tentativa)
-
-    return []  # nada novo encontrado
+    return random.sample(candidates, k)
