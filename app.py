@@ -90,8 +90,6 @@ if col2.button("⏭️ Pular grupo"):
         progress["history"].append(tuple(sorted(trio_pulavel)))
         save_user_progress(user, position, progress)
         st.experimental_rerun()
-    save_user_progress(user, position, progress)
-    st.experimental_rerun()
 
 if len(progress["ranked"]) >= len(all_players):
     st.success("Ranking completo!")
