@@ -126,7 +126,7 @@ if selected:
         if (selected, other) not in progress["preferences"]:
             progress["preferences"].append((selected, other))
 
-        progress["history"].append(tuple(sorted(grupo)))
+    progress["history"].append(tuple(sorted(grupo)))
     save_user_progress(user, position, progress)
     st.experimental_rerun()
 
