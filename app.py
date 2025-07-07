@@ -110,7 +110,26 @@ if len(progress["ranked"]) >= len(all_players):
     st.stop()
 
 remaining = [p for p in all_players if p not in progress["ranked"]]
-grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=3)
+limite_comparacoes = int(0.12 * comb(len(all_players), 2))
+if len(progress["preferences"]) >= limite_comparacoes:
+    st.success("Você já respondeu comparações suficientes para gerar um ranking consistente!")
+    G = nx.DiGraph()
+    G.add_nodes_from(all_players)
+    G.add_edges_from(progress["preferences"])
+    ranking = list(nx.topological_sort(G))
+    df_result = pd.DataFrame(ranking, columns=["PLAYER NAME"])
+    df_result["RANK"] = range(1, len(df_result) + 1)
+    st.dataframe(df_result)
+    st.download_button(
+        "📥 Baixar ranking em CSV",
+        data=df_result.to_csv(index=False).encode("utf-8"),
+        file_name=f"{user}_{position}_ranking.csv",
+        mime="text/csv"
+    )
+    st.stop()
+
+players_with_tiers = players_df.set_index("PLAYER NAME")["TIERS"].to_dict()
+grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=3, tiers=players_with_tiers)
 
 st.subheader("Quem vale mais na Brain League, para você?")
 
@@ -123,8 +142,7 @@ for player in grupo:
 
         progress["history"].append(tuple(sorted(grupo)))
         save_user_progress(user, position, progress)
-        st.success("Escolha registrada. Prossiga com a próxima comparação.")
-        st.stop()
+        st.experimental_rerun()
 
 # Exibir progresso
 num_total_trios = comb(len(all_players), 2)
