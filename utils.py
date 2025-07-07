@@ -19,7 +19,11 @@ def load_user_progress(user, position):
         with open(path, "r") as f:
             return json.load(f)
     else:
-        return {"preferences": [], "history": []}
+        return {
+            "preferences": [],
+            "history": [],
+            "ranked": []
+        }
 
 def save_user_progress(user, position, progress):
     os.makedirs(USER_DATA_PATH, exist_ok=True)
