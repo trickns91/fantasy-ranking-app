@@ -105,13 +105,13 @@ if st.session_state.get("pagina") == "previa":
         for t_idx, t in enumerate(tiers):
             st.markdown(f"#### 🎯 Tier {t_idx+1}")
             cols = st.columns(3)
-        for idx, (nome, score) in enumerate(t):
-            delta = fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
-            emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-            with cols[idx % 3]:
-                st.markdown(f"**{ranking.index(nome)+1}. {nome}**")
-                st.caption(f"Δ: {delta:+} {emoji} | ⭐ {score}")+1}. {nome}** ({emoji}{abs(delta)}) ⭐ {score}")
-    else:
+            for idx, (nome, score) in enumerate(t):
+                delta = fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
+                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
+                with cols[idx % 3]:
+                    st.markdown(f"**{ranking.index(nome)+1}. {nome}**")
+                    st.caption(f"Δ: {delta:+} {emoji} | ⭐ {score}")
+        else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
 
     if st.button("⬅️ Voltar para comparações"):
