@@ -94,7 +94,7 @@ if st.session_state.get("pagina") == "previa":
         for vencedor, _ in progress["preferences"]:
             scores[vencedor] += 1
 
-        # Gerar tiers automáticos (baseado em score)
+        # Tiers por diferença de score
         sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         tier_map = {}
         current_tier = 1
@@ -106,44 +106,31 @@ if st.session_state.get("pagina") == "previa":
             else:
                 current_tier += 1
             tier_map[player] = current_tier
-            tiered.append((player, score, current_tier))
+            tiered.append((player, current_tier))
             last_score = score
 
-        # DataFrame para download
-        df_ranking = pd.DataFrame({
-            "Rank": [ranking.index(p) + 1 for p in ranking],
-            "Jogador": ranking,
-            "Tier": [tier_map.get(p, None) for p in ranking],
-            "Score": [scores.get(p, 0) for p in ranking],
-            "Δ FP": [
-                fantasypros_rank.get(p, len(all_players)) - ranking.index(p)
-                for p in ranking
-            ]
-        })
-
-        # Mostrar tabela interativa
-        st.dataframe(df_ranking[["Rank", "Jogador", "Tier", "Score", "Δ FP"]],
-                     use_container_width=True)
-
-        # Baixar CSV
-        if st.button("⬇️ Baixar ranking em CSV"):
-            export = df_ranking.merge(all_players_df, on="Jogador", how="left")
-            st.download_button("📥 Download do Ranking", export.to_csv(index=False).encode('utf-8'),
-                               file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
-
-        # Separação visual por Tier
+        # Blocos por Tier
         st.markdown("## 📦 Jogadores por Tier")
-        for tier_num in sorted(set(t for _, _, t in tiered)):
+        for tier_num in sorted(set(t for _, t in tiered)):
             st.markdown(f"### 🎯 Tier {tier_num}")
-            st.write("| Rank | Jogador | Δ FP | Score |")
-            st.write("|------|---------|------|-------|")
-            for player, score, tier in tiered:
+            st.write("| Rank | Jogador | Δ FP |")
+            st.write("|------|---------|------|")
+            for player, tier in tiered:
                 if tier != tier_num:
                     continue
                 rank = ranking.index(player) + 1
                 delta = fantasypros_rank.get(player, len(all_players)) - rank
                 emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-                st.write(f"| {rank} | {player} | {delta:+} {emoji} | ⭐ {score} |")
+                st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
+
+        # Exportar CSV ainda pode ser útil
+        if st.button("⬇️ Baixar ranking em CSV"):
+            df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
+            df_export["Rank"] = df_export.index + 1
+            df_export["Tier"] = df_export["PLAYER NAME"].map(tier_map)
+            df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
+            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'),
+                               file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
 
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
