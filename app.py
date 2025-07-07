@@ -123,7 +123,6 @@ for i, player in enumerate(trio):
                             if choices[pp] == "":
                                 choices[pp] = rem_status
                     break
-            st.experimental_rerun()
 
 # Confirmar se todos os status estão definidos
 if set(choices.values()) == {"Start", "Bench", "Drop"}:
