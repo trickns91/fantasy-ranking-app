@@ -5,6 +5,7 @@ import networkx as nx
 import os
 import json
 from math import comb
+from collections import Counter
 
 USERS = {
     "Wendell": "458638", "Edu": "233472", "TTU": "190597", "Patrick": "471725",
@@ -28,6 +29,7 @@ if not st.session_state.user_selected:
     for i, name in enumerate(USERS):
         if cols[i % 4].button(name):
             st.session_state.user_selected = name
+            st.experimental_rerun()
     st.stop()
 
 if not st.session_state.authenticated:
@@ -64,22 +66,24 @@ if col1.button("🔁 Resetar ranking"):
     st.session_state.confirm_reset = True
 
 if st.session_state.confirm_reset:
-    st.warning(f"Tem certeza que quer zerar todas as informações de ranking de {position}?")
-    senha_confirma = st.text_input("Confirme sua senha para resetar:", type="password")
-    if st.button("Confirmar reset"):
-        if USERS[user] == senha_confirma:
-            path = f"progress/{user}_{position}.json"
-            if os.path.exists(path):
-                os.remove(path)
-            st.session_state.progress = {
-                "preferences": [],
-                "ranked": [],
-                "history": []
-            }
-            st.session_state.confirm_reset = False
-            st.experimental_rerun()
-        else:
-            st.error("Senha incorreta para confirmação.")
+    with st.form(key="reset_form"):
+        st.warning(f"Tem certeza que quer zerar todas as informações de ranking de {position}?")
+        senha_confirma = st.text_input("Confirme sua senha para resetar:", type="password")
+        submit = st.form_submit_button("Confirmar reset")
+        if submit:
+            if USERS[user] == senha_confirma:
+                path = f"progress/{user}_{position}.json"
+                if os.path.exists(path):
+                    os.remove(path)
+                st.session_state.progress = {
+                    "preferences": [],
+                    "ranked": [],
+                    "history": []
+                }
+                st.session_state.confirm_reset = False
+                st.experimental_rerun()
+            else:
+                st.error("Senha incorreta para confirmação.")
 
 if col2.button("⏭️ Pular grupo"):
     progress["history"].append(tuple(sorted(get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=4))))
