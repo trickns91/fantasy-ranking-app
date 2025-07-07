@@ -89,7 +89,8 @@ if col2.button("⏭️ Pular grupo"):
     if trio_pulavel:
         progress["history"].append(tuple(sorted(trio_pulavel)))
         save_user_progress(user, position, progress)
-        st.experimental_rerun()
+        st.success("Grupo pulado com sucesso. Prossiga com a próxima comparação.")
+        st.stop()
 
 if len(progress["ranked"]) >= len(all_players):
     st.success("Ranking completo!")
