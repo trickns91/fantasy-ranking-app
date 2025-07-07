@@ -1,2 +1,6 @@
-streamlit
-pandas
+streamlit>=1.30
+pandas>=2.0
+networkx>=3.0
+gspread
+oauth2client
+openpyxl
