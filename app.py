@@ -42,6 +42,7 @@ if not st.session_state.authenticated:
             st.experimental_rerun()
         else:
             st.error("Senha incorreta.")
+    st.stop()
 
 
 user = st.session_state.user_selected
