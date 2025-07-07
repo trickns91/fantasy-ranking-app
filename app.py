@@ -73,7 +73,6 @@ if st.button("🔍 Ver prévia do ranking"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
-# === Página de prévia ===
 if st.session_state.get("pagina") == "previa":
     st.subheader("🔍 Prévia do Ranking")
 
@@ -95,9 +94,26 @@ if st.session_state.get("pagina") == "previa":
         for vencedor, _ in progress["preferences"]:
             scores[vencedor] += 1
 
+        # Gerar tiers automáticos (baseado em score)
+        sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        tier_map = {}
+        current_tier = 1
+        last_score = None
+        tiered = []
+        for player, score in sorted_players:
+            if last_score is None or abs(score - last_score) <= 1:
+                pass
+            else:
+                current_tier += 1
+            tier_map[player] = current_tier
+            tiered.append((player, score, current_tier))
+            last_score = score
+
+        # DataFrame para download
         df_ranking = pd.DataFrame({
             "Rank": [ranking.index(p) + 1 for p in ranking],
             "Jogador": ranking,
+            "Tier": [tier_map.get(p, None) for p in ranking],
             "Score": [scores.get(p, 0) for p in ranking],
             "Δ FP": [
                 fantasypros_rank.get(p, len(all_players)) - ranking.index(p)
@@ -105,17 +121,30 @@ if st.session_state.get("pagina") == "previa":
             ]
         })
 
-        df_ranking["Tendência"] = df_ranking["Δ FP"].apply(
-            lambda d: "🔺" if d > 0 else "🔻" if d < 0 else "➖"
-        )
-
-        st.dataframe(df_ranking[["Rank", "Jogador", "Score", "Δ FP", "Tendência"]],
+        # Mostrar tabela interativa
+        st.dataframe(df_ranking[["Rank", "Jogador", "Tier", "Score", "Δ FP"]],
                      use_container_width=True)
 
+        # Baixar CSV
         if st.button("⬇️ Baixar ranking em CSV"):
             export = df_ranking.merge(all_players_df, on="Jogador", how="left")
             st.download_button("📥 Download do Ranking", export.to_csv(index=False).encode('utf-8'),
                                file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+
+        # Separação visual por Tier
+        st.markdown("## 📦 Jogadores por Tier")
+        for tier_num in sorted(set(t for _, _, t in tiered)):
+            st.markdown(f"### 🎯 Tier {tier_num}")
+            st.write("| Rank | Jogador | Δ FP | Score |")
+            st.write("|------|---------|------|-------|")
+            for player, score, tier in tiered:
+                if tier != tier_num:
+                    continue
+                rank = ranking.index(player) + 1
+                delta = fantasypros_rank.get(player, len(all_players)) - rank
+                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
+                st.write(f"| {rank} | {player} | {delta:+} {emoji} | ⭐ {score} |")
+
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
 
