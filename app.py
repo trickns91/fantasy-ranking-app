@@ -104,8 +104,8 @@ if st.session_state.get("pagina") == "previa":
 
         for t_idx, t in enumerate(tiers):
             st.markdown(f"#### 🎯 Tier {t_idx+1}")
-            st.write("| Rank | Jogador | Δ FP | Score |
-|------|---------|------|-------|")
+            st.write("""| Rank | Jogador | Δ FP | Score |
+|------|---------|------|-------|""")
             for idx, (nome, score) in enumerate(t):
                 delta = fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
                 emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
@@ -121,9 +121,10 @@ if st.session_state.get("pagina") == "previa":
             df_export["Rank"] = df_export.index + 1
             df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
             st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+"📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
 
-        if st.button("⬅️ Voltar para comparações"):
-        st.session_state["pagina"] = "comparar"
+                if st.button("⬅️ Voltar para comparações"):
+            st.session_state["pagina"] = "comparar"
         st.rerun()
     st.stop()
 
