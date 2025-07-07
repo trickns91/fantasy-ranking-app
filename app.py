@@ -1,9 +1,10 @@
 import streamlit as st
-from utils import load_players, load_user_progress, save_user_progress, get_next_trio
+from utils import load_players, load_user_progress, save_user_progress, get_next_trio_heuristic
 import pandas as pd
 import networkx as nx
 import os
 import json
+from math import comb
 
 USERS = {
     "Wendell": "458638", "Edu": "233472", "TTU": "190597", "Patrick": "471725",
@@ -18,6 +19,8 @@ if "user_selected" not in st.session_state:
     st.session_state.user_selected = None
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "confirm_reset" not in st.session_state:
+    st.session_state.confirm_reset = False
 
 if not st.session_state.user_selected:
     st.subheader("Escolha seu nome:")
@@ -58,18 +61,28 @@ progress = st.session_state.progress
 # Botões de reset e pular
 col1, col2 = st.columns(2)
 if col1.button("🔁 Resetar ranking"):
-    path = f"progress/{user}_{position}.json"
-    if os.path.exists(path):
-        os.remove(path)
-    st.session_state.progress = {
-        "preferences": [],
-        "ranked": [],
-        "history": []
-    }
-    st.experimental_rerun()
+    st.session_state.confirm_reset = True
 
-if col2.button("⏭️ Pular trio"):
-    progress["history"].append(tuple(sorted(get_next_trio(all_players, progress["history"], all_players))))
+if st.session_state.confirm_reset:
+    st.warning(f"Tem certeza que quer zerar todas as informações de ranking de {position}?")
+    senha_confirma = st.text_input("Confirme sua senha para resetar:", type="password")
+    if st.button("Confirmar reset"):
+        if USERS[user] == senha_confirma:
+            path = f"progress/{user}_{position}.json"
+            if os.path.exists(path):
+                os.remove(path)
+            st.session_state.progress = {
+                "preferences": [],
+                "ranked": [],
+                "history": []
+            }
+            st.session_state.confirm_reset = False
+            st.experimental_rerun()
+        else:
+            st.error("Senha incorreta para confirmação.")
+
+if col2.button("⏭️ Pular grupo"):
+    progress["history"].append(tuple(sorted(get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=4))))
     save_user_progress(user, position, progress)
     st.experimental_rerun()
 
@@ -91,32 +104,32 @@ if len(progress["ranked"]) >= len(all_players):
     st.stop()
 
 remaining = [p for p in all_players if p not in progress["ranked"]]
-trio = get_next_trio(remaining, progress["history"], all_players)
+grupo = get_next_trio_heuristic(remaining, progress["preferences"], progress["history"], k=4)
 
-st.subheader("Quem é o melhor entre os três?")
-st.write("Escolha um dos jogadores abaixo:")
+st.subheader("Quem vale mais na Brain League, para você?")
 
-cols = st.columns(3)
+cols = st.columns(4)
 selected = None
-for i, player in enumerate(trio):
+for i, player in enumerate(grupo):
     with cols[i]:
         if st.button(player):
             selected = player
             break
 
 if selected:
-    others = [p for p in trio if p != selected]
+    others = [p for p in grupo if p != selected]
     for other in others:
         if (selected, other) not in progress["preferences"]:
             progress["preferences"].append((selected, other))
 
-    progress["ranked"] += [p for p in trio if p not in progress["ranked"]]
-    progress["history"].append(tuple(sorted(trio)))
+    progress["ranked"] += [p for p in grupo if p not in progress["ranked"]]
+    progress["history"].append(tuple(sorted(grupo)))
     save_user_progress(user, position, progress)
     st.experimental_rerun()
 
 # Exibir progresso
-num_total_trios = len(all_players) * (len(all_players) - 1) // 6
-pct = len(progress["history"]) / num_total_trios * 100
+num_total_trios = comb(len(all_players), 2)
+num_coletados = len(progress["preferences"])
+pct = num_coletados / num_total_trios * 100
 st.progress(min(pct / 100, 1.0))
-st.caption(f"{len(progress['history'])} comparações feitas de aproximadamente {num_total_trios} possíveis (~{pct:.1f}%)")
+st.caption(f"{num_coletados} comparações feitas de {num_total_trios} possíveis (~{pct:.1f}%)")
