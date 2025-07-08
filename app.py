@@ -152,12 +152,8 @@ if st.session_state.get("pagina") == "previa":
 
     st.stop()
 
-# Start / Bench / Drop interface real
-st.markdown("### 🧠 Para este trio, escolha:")
-st.markdown("- 🏈 **Start**: quem você colocaria como titular")
-st.markdown("- 🪑 **Bench**: quem deixaria no banco")
-st.markdown("- ❌ **Drop**: quem você dispensaria")
-
+# NOVO SISTEMA - Tabela com dropdowns lado a lado
+st.markdown("### 🧠 Para este trio, atribua uma escolha única a cada jogador:")
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
@@ -165,13 +161,18 @@ if not trio:
     st.success("Todas as comparações necessárias foram feitas!")
     st.stop()
 
-random.shuffle(trio)
-start = st.selectbox("🏈 Start:", trio, key="start")
-bench_options = [p for p in trio if p != start]
-bench = st.selectbox("🪑 Bench:", bench_options, key="bench")
+options = ["", "Start", "Bench", "Drop"]
+choices = {}
 
-if start and bench:
-    drop = [p for p in trio if p not in [start, bench]][0]
+for player in trio:
+    choices[player] = st.selectbox(f"{player}", options, key=f"sbd_{player}")
+
+selected_values = list(choices.values())
+if "" not in selected_values and len(set(selected_values)) == 3:
+    start = [p for p, v in choices.items() if v == "Start"][0]
+    bench = [p for p, v in choices.items() if v == "Bench"][0]
+    drop = [p for p, v in choices.items() if v == "Drop"][0]
+
     comparacoes = [
         [start, bench],
         [start, drop],
