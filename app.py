@@ -66,6 +66,7 @@ if st.button("🔍 Ver prévia do ranking"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
+tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 if st.session_state.get("pagina") == "previa":
     st.subheader("🔍 Prévia do Ranking")
     G = nx.DiGraph()
