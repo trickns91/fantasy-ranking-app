@@ -1,7 +1,8 @@
 
 import streamlit as st
-import networkx as nx
 import pandas as pd
+import random
+import networkx as nx
 from utils import (
     load_players, load_user_progress, save_user_progress,
     get_next_trio_heuristic, get_recent_players
@@ -17,7 +18,6 @@ usuarios = {
 
 st.title("🏈 Brain League Rankings")
 
-# Etapa 1 - seleção de usuário
 if "user" not in st.session_state:
     st.subheader("Escolha seu nome:")
     cols = st.columns(4)
@@ -30,8 +30,6 @@ if "user" not in st.session_state:
     st.stop()
 
 user = st.session_state["user"]
-
-# Etapa 2 - autenticação
 if not st.session_state.get("authenticated", False):
     senha = st.text_input(f"Digite a senha para {user}:", type="password")
     if senha == usuarios[user]:
@@ -40,8 +38,7 @@ if not st.session_state.get("authenticated", False):
     else:
         st.stop()
 
-# Etapa 3 - seleção de posição
-st.subheader(f"Olá, {user}! Escolha a posição para ranquear:")
+st.subheader(f"Olá, {user}! Escolha a posição:")
 posicoes = ["QB", "RB", "WR", "TE"]
 cols = st.columns(4)
 for i, pos in enumerate(posicoes):
@@ -56,24 +53,21 @@ if "position" not in st.session_state:
 position = st.session_state["position"]
 all_players_df = load_players(position)
 all_players = all_players_df["PLAYER NAME"].tolist()
-
-# Etapa 4 - progresso do usuário
 progress = load_user_progress(user, position)
 recent_players = get_recent_players(progress["history"], max_recent=6)
 
-comparacoes = len(set(tuple(sorted(pair)) for pair in progress["history"] if len(pair) == 2))
+comparacoes = len(set(tuple(sorted(pair)) for pair in progress["history"]))
 total_necessarias = len(all_players) * 2
 percentual = int(100 * comparacoes / total_necessarias)
-
 st.markdown(f"### 📊 Progresso de {user} em {position}: {percentual}% ({comparacoes} de {total_necessarias})")
 
-if st.button("🔍 Ver prévia do ranking", key="ver_previa"):
+if st.button("🔍 Ver prévia do ranking"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
+# Página de prévia do ranking
 if st.session_state.get("pagina") == "previa":
     st.subheader("🔍 Prévia do Ranking")
-
     G = nx.DiGraph()
     for vencedor, perdedor in progress["preferences"]:
         G.add_edge(vencedor, perdedor)
@@ -82,78 +76,88 @@ if st.session_state.get("pagina") == "previa":
         ranking = list(nx.topological_sort(G))
     else:
         scores = {p: 0 for p in all_players}
-        for vencedor, _ in progress["preferences"]:
+        for vencedor, perdedor in progress["preferences"]:
             scores[vencedor] += 1
         ranking = sorted(scores, key=scores.get, reverse=True)
 
     if ranking:
         fantasypros_rank = {name: i for i, name in enumerate(all_players)}
         scores = {p: 0 for p in all_players}
-        for vencedor, _ in progress["preferences"]:
+        for vencedor, perdedor in progress["preferences"]:
             scores[vencedor] += 1
 
         sorted_players = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        tier_map = {}
-        current_tier = 1
+        tiers = []
+        tier = []
         last_score = None
-        tiered = []
         for player, score in sorted_players:
             if last_score is None or abs(score - last_score) <= 1:
-                pass
+                tier.append((player, score))
             else:
-                current_tier += 1
-            tier_map[player] = current_tier
-            tiered.append((player, current_tier))
+                tiers.append(tier)
+                tier = [(player, score)]
             last_score = score
+        if tier:
+            tiers.append(tier)
 
-        st.markdown("## 📦 Jogadores por Tier")
-        for tier_num in sorted(set(t for _, t in tiered)):
-            st.markdown(f"### 🎯 Tier {tier_num}")
-            st.write("| Rank | Jogador | Δ FP |")
-            for player, tier in tiered:
-                if tier != tier_num:
-                    continue
-                rank = ranking.index(player) + 1
-                delta = fantasypros_rank.get(player, len(all_players)) - rank
-                emoji = "" if abs(delta) < 1 else ("🔺" if delta > 0 else "🔻")
-                st.write(f"| {rank} | {player} | {delta:+} {emoji} |")
+        for t_idx, t in enumerate(tiers):
+            st.markdown(f"##### 🎯 Tier {t_idx+1}")
+            df_tier = pd.DataFrame([
+                {
+                    "Rank": ranking.index(nome)+1,
+                    "Jogador": nome,
+                    "Δ FP": fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
+                }
+                for nome, score in t if nome in ranking
+            ])
+            st.table(df_tier.sort_values("Rank"))
 
-        if st.button("⬇️ Baixar ranking em CSV", key="baixar_csv"):
+        if st.button("📥 Baixar ranking em CSV"):
             df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
             df_export["Rank"] = df_export.index + 1
-            df_export["Tier"] = df_export["PLAYER NAME"].map(tier_map)
             df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
-            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode('utf-8'),
-                               file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode("utf-8"), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
+
     else:
         st.info("Ainda não há comparações suficientes para gerar ranking.")
 
-    if st.button("⬅️ Voltar para comparações", key="voltar_comp"):
+    if st.button("⬅️ Voltar para comparações"):
         st.session_state["pagina"] = "comparar"
         st.rerun()
+
     st.stop()
 
+# Comparação com 2 cliques (start, bench, drop)
+st.markdown("### 🧠 Escolha: Start, Bench, Drop")
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
-st.markdown(f"### 🔢 Comparação - {position}")
 if not trio:
     st.success("Todas as comparações necessárias foram feitas!")
     st.stop()
 
-st.markdown("**Quem vale mais na Brain League, para você?**")
-for player in trio:
-    if st.button(player):
-        outros = [p for p in trio if p != player]
-        for p in outros:
-            if [player, p] not in progress["preferences"]:
-                progress["preferences"].append([player, p])
-            sorted_pair = tuple(sorted([player, p]))
-            if sorted_pair not in progress["history"]:
-                progress["history"].append(sorted_pair)
-        save_user_progress(user, position, progress)
-        st.rerun()
+random.shuffle(trio)
+start = st.selectbox("🏈 Start:", trio, key="start")
+bench_options = [p for p in trio if p != start]
+bench = st.selectbox("🪑 Bench:", bench_options, key="bench")
 
+if start and bench:
+    drop = [p for p in trio if p not in [start, bench]][0]
+    comparacoes = [
+        [start, bench],
+        [start, drop],
+        [bench, drop]
+    ]
+    for c in comparacoes:
+        if c not in progress["preferences"]:
+            progress["preferences"].append(c)
+        sorted_pair = tuple(sorted(c))
+        if sorted_pair not in progress["history"]:
+            progress["history"].append(sorted_pair)
+    save_user_progress(user, position, progress)
+    st.rerun()
+
+# Reset ranking
 with st.expander("🔁 Resetar ranking"):
     senha_reset = st.text_input(f"Digite sua senha para confirmar o reset de {position}:", type="password")
     if st.button("Confirmar reset"):

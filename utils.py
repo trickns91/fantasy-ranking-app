@@ -23,24 +23,19 @@ def load_user_progress(user, position):
     filepath = os.path.join(USER_DIR, f"{user}_{position}.json")
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
-            data = json.load(f)
-            data["history"] = [tuple(sorted(p)) for p in data.get("history", [])]
-            return data
-    return {"preferences": [], "history": [], "ranked": []}
+            return json.load(f)
+    else:
+        return {"preferences": [], "history": [], "ranked": []}
 
 def save_user_progress(user, position, progress):
+    os.makedirs(USER_DIR, exist_ok=True)
     filepath = os.path.join(USER_DIR, f"{user}_{position}.json")
-    data = {
-        "preferences": progress["preferences"],
-        "history": [list(p) for p in progress["history"]],
-        "ranked": progress.get("ranked", [])
-    }
     with open(filepath, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(progress, f)
 
 def get_recent_players(history, max_recent=6):
-    flat = [p for pair in reversed(history[-max_recent:]) for p in pair]
-    return list(set(flat[-max_recent:]))
+    flat = [p for pair in history[-max_recent:] for p in pair]
+    return list(set(flat))
 
 def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, exclude=[]):
     history_set = set(tuple(sorted(p)) for p in history)
@@ -50,12 +45,10 @@ def get_next_trio_heuristic(players, preferences, history, k=3, tiers=None, excl
     if tiers:
         tier_dict = {p: int(t) if str(t).isdigit() else 99 for p, t in zip(players, tiers)}
         available.sort(key=lambda x: tier_dict.get(x, 99))
-    random.shuffle(available)
-    return get_trio_from_pool(available, history_set, k)
-
-def get_trio_from_pool(pool, history_set, k=3):
+    pool = [p for p in available if p not in exclude]
+    random.shuffle(pool)
     for trio in itertools.combinations(pool, k):
-        pairings = set(tuple(sorted([trio[i], trio[j]])) for i in range(k) for j in range(i + 1, k))
+        pairings = set(tuple(sorted([trio[i], trio[j]])) for i in range(k) for j in range(i+1, k))
         if not pairings.issubset(history_set):
             return list(trio)
     return random.sample(pool, k)
