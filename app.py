@@ -101,58 +101,23 @@ if st.session_state.get("pagina") == "previa":
             tiers.append(tier)
 
         for t_idx, t in enumerate(tiers):
+
         st.markdown(f"🎯 **Tier {t_idx+1}**")
         tier_data = []
-            st.markdown(f"##### 🎯 Tier {t_idx+1}")
-            df_tier = pd.DataFrame([
-                {
-                    "Rank": ranking.index(nome)+1,
-                    "Jogador": nome,
-                    "Δ FP": fantasypros_rank.get(nome, len(all_players)) - ranking.index(nome)
-                }
-                for nome, score in t if nome in ranking
-            ])
-            st.table(df_tier.sort_values("Rank"))
-
-        # Estatísticas
-        st.markdown("#### 📊 Frequência de escolhas")
-        start_count = Counter()
-        bench_count = Counter()
-        drop_count = Counter()
-
-        prefs = progress["preferences"]
-        for i in range(0, len(prefs), 3):
-            if i + 2 < len(prefs):
-                start_count[prefs[i][0]] += 1
-                bench_count[prefs[i+1][0]] += 1
-                drop_count[prefs[i+2][1]] += 1
-
-        all_counts = set(start_count.keys()) | set(bench_count.keys()) | set(drop_count.keys())
-        df_summary = pd.DataFrame([
-            {
-                "Jogador": p,
-                "Start": start_count.get(p, 0),
-                "Bench": bench_count.get(p, 0),
-                "Drop": drop_count.get(p, 0)
-            }
-            for p in all_counts
-        ])
-        st.dataframe(df_summary.sort_values("Start", ascending=False), use_container_width=True)
-
-        if st.button("📥 Baixar ranking em CSV"):
-            df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
-            df_export["Rank"] = df_export.index + 1
-            df_export = df_export.merge(all_players_df, on="PLAYER NAME", how="left")
-            st.download_button("📥 Download do Ranking", df_export.to_csv(index=False).encode("utf-8"), file_name=f"ranking_{user}_{position}.csv", mime="text/csv")
-
-    else:
-        st.info("Ainda não há comparações suficientes para gerar ranking.")
-
-    if st.button("⬅️ Voltar para comparações"):
-        st.session_state["pagina"] = "comparar"
-        st.rerun()
-
-    st.stop()
+        for nome, score in t:
+            pos_fp = fantasypros_rank.get(nome, len(all_players))
+            pos_user = ranking.index(nome)
+            delta = pos_fp - pos_user
+            tier_data.append({
+                "Rank": pos_user + 1,
+                "Jogador": nome,
+                "Rank FP": pos_fp + 1,
+                "Δ FP": delta
+            })
+        if tier_data:
+            df_tier = pd.DataFrame(tier_data).sort_values("Rank").reset_index(drop=True)
+            st.dataframe(df_tier, use_container_width=True)
+st.stop()
 
 # COMPARAÇÃO COM DROPDOWNS ESTÁVEIS
 st.markdown("### 🧠 Para este trio, atribua uma escolha única a cada jogador:")
