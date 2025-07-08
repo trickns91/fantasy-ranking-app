@@ -174,6 +174,7 @@ dropdown_values = {}
 selected_so_far = []
 for player in trio:
     if f"escolha_{player}" not in st.session_state:
+        st.session_state[f"escolha_{player}"] = ""
 
 # Mostrar selects com opções dinâmicas
 for player in trio:
