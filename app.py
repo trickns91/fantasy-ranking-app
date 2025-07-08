@@ -101,9 +101,22 @@ if st.session_state.get("pagina") == "previa":
             tiers.append(tier)
 
         for t_idx, t in enumerate(tiers):
+    st.markdown(f"🎯 **Tier {t_idx+1}**")
+    tier_data = []
+    for nome, score in t:
+        pos_fp = fantasypros_rank.get(nome, len(all_players))
+        pos_user = ranking.index(nome)
+        delta = pos_fp - pos_user
+        tier_data.append({
+            "Rank": pos_user + 1,
+            "Jogador": nome,
+            "Rank FP": pos_fp + 1,
+            "Δ FP": delta
+        })
+    if tier_data:
+        df_tier = pd.DataFrame(tier_data).sort_values("Rank").reset_index(drop=True)
+        st.dataframe(df_tier, use_container_width=True)
 
-        st.markdown(f"🎯 **Tier {t_idx+1}**")
-        tier_data = []
         for nome, score in t:
             pos_fp = fantasypros_rank.get(nome, len(all_players))
             pos_user = ranking.index(nome)
