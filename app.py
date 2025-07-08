@@ -61,6 +61,15 @@ players_df = load_players(position)
 all_players = players_df.to_dict("records")
 progress = load_user_progress(user, position)
 
+total_jogadores = len(players_df)
+pares_totais = total_jogadores * (total_jogadores - 1) // 2
+pares_minimos = int(total_jogadores * math.log2(total_jogadores))
+perguntas_minimas = pares_minimos // 2
+perguntas_feitas = len(progress["votes"])
+perguntas_restantes = max(0, perguntas_minimas - perguntas_feitas)
+
+st.info(f"📊 Jogadores: {total_jogadores}  |  Perguntas mínimas: {perguntas_minimas}  |  Já respondidas: {perguntas_feitas}  |  Faltam: {perguntas_restantes}")
+
 if st.button("🗑️ Resetar meu ranking"):
     progress = {"votes": [], "history": []}
     save_user_progress(user, position, progress)
@@ -90,6 +99,16 @@ for i, jogador in enumerate(trio):
 
 # Mostrar total de votos
 if st.button("📊 Ver ranking parcial"):
+    st.subheader("Ranking Parcial")
+    if progress["votes"]:
+        contagem = pd.Series(progress["votes"]).value_counts()
+        ranking = pd.DataFrame({"PLAYER NAME": contagem.index, "VOTOS": contagem.values})
+        ranking = ranking.merge(players_df, on="PLAYER NAME", how="left")
+        st.dataframe(ranking.sort_values("VOTOS", ascending=False).reset_index(drop=True))
+        csv = ranking.to_csv(index=False)
+        st.download_button("⬇️ Baixar ranking CSV", data=csv, file_name=f"{user}_{position}_ranking.csv", mime="text/csv")
+    else:
+        st.info("Você ainda não respondeu nenhuma pergunta.")
     st.subheader("Ranking Parcial")
     contagem = pd.Series(progress["votes"]).value_counts()
     ranking = pd.DataFrame({"PLAYER NAME": contagem.index, "VOTOS": contagem.values})
