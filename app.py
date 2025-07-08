@@ -152,7 +152,7 @@ if st.session_state.get("pagina") == "previa":
 
     st.stop()
 
-# NOVO SISTEMA - Tabela com dropdowns lado a lado
+# COMPARAÇÃO COM DROPDOWNS E BOTÃO
 st.markdown("### 🧠 Para este trio, atribua uma escolha única a cada jogador:")
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
@@ -162,30 +162,37 @@ if not trio:
     st.stop()
 
 options = ["", "Start", "Bench", "Drop"]
-choices = {}
+escolhas = {}
+cols = st.columns([2, 1])
 
-for player in trio:
-    choices[player] = st.selectbox(f"{player}", options, key=f"sbd_{player}")
+for i, player in enumerate(trio):
+    cols[0].markdown(f"**{player}**")
+    escolhas[player] = cols[1].selectbox("", options, key=f"drop_{player}_{i}")
 
-selected_values = list(choices.values())
-if "" not in selected_values and len(set(selected_values)) == 3:
-    start = [p for p, v in choices.items() if v == "Start"][0]
-    bench = [p for p, v in choices.items() if v == "Bench"][0]
-    drop = [p for p, v in choices.items() if v == "Drop"][0]
+selected_values = list(escolhas.values())
+confirmar = st.button("✅ Confirmar escolhas")
 
-    comparacoes = [
-        [start, bench],
-        [start, drop],
-        [bench, drop]
-    ]
-    for c in comparacoes:
-        if c not in progress["preferences"]:
-            progress["preferences"].append(c)
-        sorted_pair = tuple(sorted(c))
-        if sorted_pair not in progress["history"]:
-            progress["history"].append(sorted_pair)
-    save_user_progress(user, position, progress)
-    st.rerun()
+if confirmar:
+    if "" not in selected_values and len(set(selected_values)) == 3:
+        start = [p for p, v in escolhas.items() if v == "Start"][0]
+        bench = [p for p, v in escolhas.items() if v == "Bench"][0]
+        drop = [p for p, v in escolhas.items() if v == "Drop"][0]
+
+        comparacoes = [
+            [start, bench],
+            [start, drop],
+            [bench, drop]
+        ]
+        for c in comparacoes:
+            if c not in progress["preferences"]:
+                progress["preferences"].append(c)
+            sorted_pair = tuple(sorted(c))
+            if sorted_pair not in progress["history"]:
+                progress["history"].append(sorted_pair)
+        save_user_progress(user, position, progress)
+        st.rerun()
+    else:
+        st.warning("Preencha uma opção diferente para cada jogador.")
 
 # Reset
 with st.expander("🔁 Resetar ranking"):
