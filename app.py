@@ -152,31 +152,43 @@ if st.session_state.get("pagina") == "previa":
 
     st.stop()
 
-# COMPARAÇÃO COM DROPDOWNS E BOTÃO
+# COMPARAÇÃO COM DROPDOWNS ESTÁVEIS
 st.markdown("### 🧠 Para este trio, atribua uma escolha única a cada jogador:")
+
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
-trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
+
+if "trio_atual" not in st.session_state:
+    st.session_state["trio_atual"] = get_next_trio_heuristic(
+        all_players, progress["preferences"], progress["history"], k=3,
+        tiers=tiers, exclude=recent_players
+    )
+trio = st.session_state["trio_atual"]
 
 if not trio:
     st.success("Todas as comparações necessárias foram feitas!")
     st.stop()
 
 options = ["", "Start", "Bench", "Drop"]
-escolhas = {}
-cols = st.columns([2, 1])
+for player in trio:
+    if f"escolha_{player}" not in st.session_state:
+        st.session_state[f"escolha_{player}"] = ""
 
-for i, player in enumerate(trio):
-    cols[0].markdown(f"**{player}**")
-    escolhas[player] = cols[1].selectbox("", options, key=f"drop_{player}_{i}")
+# Mostrar os jogadores em uma “tabela”
+for player in trio:
+    st.selectbox(
+        f"{player}",
+        options,
+        index=options.index(st.session_state[f'escolha_{player}']),
+        key=f"escolha_{player}"
+    )
 
-selected_values = list(escolhas.values())
-confirmar = st.button("✅ Confirmar escolhas")
-
-if confirmar:
-    if "" not in selected_values and len(set(selected_values)) == 3:
-        start = [p for p, v in escolhas.items() if v == "Start"][0]
-        bench = [p for p, v in escolhas.items() if v == "Bench"][0]
-        drop = [p for p, v in escolhas.items() if v == "Drop"][0]
+# Validação + botão
+selected = [st.session_state[f"escolha_{p}"] for p in trio]
+if st.button("✅ Confirmar escolhas"):
+    if "" not in selected and len(set(selected)) == 3:
+        start = [p for p in trio if st.session_state[f"escolha_{p}"] == "Start"][0]
+        bench = [p for p in trio if st.session_state[f"escolha_{p}"] == "Bench"][0]
+        drop = [p for p in trio if st.session_state[f"escolha_{p}"] == "Drop"][0]
 
         comparacoes = [
             [start, bench],
@@ -190,6 +202,14 @@ if confirmar:
             if sorted_pair not in progress["history"]:
                 progress["history"].append(sorted_pair)
         save_user_progress(user, position, progress)
+
+        # Resetar trio e escolhas
+        for p in trio:
+            st.session_state.pop(f"escolha_{p}", None)
+        st.session_state["trio_atual"] = get_next_trio_heuristic(
+            all_players, progress["preferences"], progress["history"], k=3,
+            tiers=tiers, exclude=get_recent_players(progress["history"], max_recent=6)
+        )
         st.rerun()
     else:
         st.warning("Preencha uma opção diferente para cada jogador.")
@@ -201,4 +221,7 @@ with st.expander("🔁 Resetar ranking"):
         if senha_reset == usuarios[user]:
             save_user_progress(user, position, {"preferences": [], "history": [], "ranked": []})
             st.success("Ranking resetado com sucesso!")
+            for k in list(st.session_state.keys()):
+                if k.startswith("escolha_") or k == "trio_atual":
+                    del st.session_state[k]
             st.rerun()
