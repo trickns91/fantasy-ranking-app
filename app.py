@@ -135,7 +135,7 @@ if not trio:
     st.success("Todas as comparações necessárias foram feitas!")
     st.stop()
 
-options = ["", "Start", "Bench", "Drop"]
+options = ["Start", "Bench", "Drop"]
 for player in trio:
     if f"escolha_{player}" not in st.session_state:
         st.session_state[f"escolha_{player}"] = ""
