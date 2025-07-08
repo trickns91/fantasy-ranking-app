@@ -1,27 +1,33 @@
 import streamlit as st
 import pandas as pd
 import random
-import networkx as nx
-from collections import Counter
-from utils import (
-    load_players, load_user_progress, save_user_progress,
-    get_next_trio_heuristic, get_recent_players,
-    build_graph, topological_rank, suggest_repair_comparisons
-)
-import math
+import os
+import json
 
-st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
+DATA_DIR = "data"
+USER_DIR = "user_data"
 
-# Resetar rádios, se necessário
-if st.session_state.get("reset_radios", False):
-    for k in list(st.session_state.keys()):
-        if k.startswith("voto_"):
-            del st.session_state[k]
-    st.session_state["reset_radios"] = False
+def load_players(position):
+    filepath = os.path.join(DATA_DIR, f"{position}.csv")
+    df = pd.read_csv(filepath)
+    return df
 
-if "pagina" not in st.session_state:
-    st.session_state["pagina"] = "comparar"
-pagina = st.session_state["pagina"]
+def load_user_progress(user, position):
+    os.makedirs(USER_DIR, exist_ok=True)
+    filepath = os.path.join(USER_DIR, f"{user}_{position}.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            return json.load(f)
+    else:
+        return {"votes": [], "history": []}
+
+def save_user_progress(user, position, progress):
+    os.makedirs(USER_DIR, exist_ok=True)
+    filepath = os.path.join(USER_DIR, f"{user}_{position}.json")
+    with open(filepath, "w") as f:
+        json.dump(progress, f)
+
+st.set_page_config(page_title="BL Trade Value", layout="centered")
 
 usuarios = {
     "Patrick": "", "Wendell": "471725", "Edu": "903152", "TTU": "235817",
@@ -29,7 +35,7 @@ usuarios = {
     "TX": "918273", "Ricardo": "450192", "Ed": "384920", "Raphael": "672103"
 }
 
-st.title("🏈 Brain League Rankings")
+st.title("💰 Valor de Trade - Brain League")
 
 if "user" not in st.session_state:
     st.subheader("Escolha seu nome:")
@@ -53,80 +59,36 @@ if "position" not in st.session_state:
 position = st.session_state["position"]
 players_df = load_players(position)
 all_players = players_df.to_dict("records")
-
 progress = load_user_progress(user, position)
 
-if pagina == "comparar":
-    st.subheader("Escolha quem é melhor entre os três:")
-    recent_players = get_recent_players(progress["history"])
-    trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, exclude=recent_players)
+# Remover jogadores já escolhidos para variar
+recent = progress["history"][-9:] if progress["history"] else []
+candidates = [p for p in all_players if p["PLAYER NAME"] not in recent]
 
-    votos = {}
-    cols = st.columns(3)
-    for i, jogador in enumerate(trio):
-        nome = jogador["PLAYER NAME"]
-        with cols[i]:
-            st.markdown(f"### {nome}")
-            st.markdown(f"**Tier**: {jogador.get('TIERS', '?')}")
-            votos[nome] = st.radio("Escolha:", ["Start", "Bench", "Drop"], key=f"voto_{i}")
+if len(candidates) < 3:
+    candidates = all_players
 
-    if st.button("✅ Confirmar escolha"):
-        if sorted(votos.values()) != ["Bench", "Drop", "Start"]:
-            st.warning("Você deve selecionar exatamente um Start, um Bench e um Drop.")
-        else:
-            ordem = {"Start": 2, "Bench": 1, "Drop": 0}
-            trio_ordenado = sorted(votos.items(), key=lambda x: ordem[x[1]], reverse=True)
-            for i in range(3):
-                for j in range(i+1, 3):
-                    melhor, pior = trio_ordenado[i][0], trio_ordenado[j][0]
-                    progress["preferences"].append((melhor, pior))
-                    progress["history"].append(tuple(sorted((melhor, pior))))
+trio = random.sample(candidates, 3)
+
+st.subheader("Qual o jogador mais valioso em uma trade da BL?")
+cols = st.columns(3)
+for i, jogador in enumerate(trio):
+    nome = jogador["PLAYER NAME"]
+    salario = jogador["SALARY_M"]
+    with cols[i]:
+        if st.button(f"{nome} (${salario}M)", key=f"btn_{i}"):
+            progress["votes"].append(nome)
+            progress["history"].append(nome)
             save_user_progress(user, position, progress)
-            st.session_state["reset_radios"] = True
             st.rerun()
 
-    st.markdown("---")
-    total_jogadores = len(players_df)
-    comparados = len(set(p for pair in progress["preferences"] for p in pair))
-    total_pares = len(progress["history"])
-    minimo_sugerido = int(total_jogadores * math.log2(total_jogadores))
-    maximo_teorico = total_jogadores * (total_jogadores - 1) // 2
+# Mostrar total de votos
+if st.button("📊 Ver ranking parcial"):
+    st.subheader("Ranking Parcial")
+    contagem = pd.Series(progress["votes"]).value_counts()
+    ranking = pd.DataFrame({"PLAYER NAME": contagem.index, "VOTOS": contagem.values})
+    ranking = ranking.merge(players_df, on="PLAYER NAME", how="left")
+    st.dataframe(ranking.sort_values("VOTOS", ascending=False).reset_index(drop=True))
 
-    st.markdown(f"✅ Jogadores já comparados: **{comparados}/{total_jogadores}**")
-    st.markdown(f"🔁 Comparações feitas: **{total_pares}**")
-    st.markdown(f"📊 Mínimo sugerido para bom ranking: **{minimo_sugerido}**")
-    st.markdown(f"🧪 Máximo teórico: **{maximo_teorico}**")
-
-    if st.button("📋 Ver ranking parcial"):
-        st.session_state["pagina"] = "ranking"
-        st.rerun()
-
-elif pagina == "ranking":
-    st.subheader(f"📋 Ranking de {position}")
-    graph = build_graph(progress["preferences"])
-    try:
-        ordenado = topological_rank(graph)
-        score = {nome: i for i, nome in enumerate(ordenado)}
-        df = players_df.set_index("PLAYER NAME").loc[ordenado].copy()
-        df["Ranking"] = df.index.map(score)
-        df["Ranking"] = df["Ranking"] + 1
-        df = df.reset_index()
-        df = df.sort_values("Ranking")
-        cols_para_exibir = ["Ranking", "PLAYER NAME", "TIERS", "RK", "AVG.", "ECR VS ADP"]
-        st.dataframe(df[cols_para_exibir])
-
-        csv = df[cols_para_exibir].to_csv(index=False)
-        st.download_button("⬇️ Baixar ranking em CSV", data=csv, file_name=f"{user}_{position}_ranking.csv", mime="text/csv")
-    except nx.NetworkXUnfeasible:
-        st.error("⚠️ Detetado conflito nas comparações. Gerando sugestões para resolver...")
-        sugestoes = suggest_repair_comparisons(graph, progress["preferences"])
-        if sugestoes:
-            st.markdown("🔄 Compare os seguintes jogadores para melhorar o ranking:")
-            for a, b in sugestoes[:5]:
-                st.markdown(f"- {a} vs {b}")
-        else:
-            st.warning("Não foi possível sugerir pares. Tente comparar mais jogadores.")
-
-    if st.button("🔙 Voltar para comparar"):
-        st.session_state["pagina"] = "comparar"
-        st.rerun()
+    csv = ranking.to_csv(index=False)
+    st.download_button("⬇️ Baixar ranking CSV", data=csv, file_name=f"{user}_{position}_ranking.csv", mime="text/csv")
