@@ -191,7 +191,11 @@ for player in trio:
         index=available.index(current_selection) if current_selection in available else 0,
         key=f"escolha_{player}"
     )
-        f"{player}", available, index=available.index(current_selection) if current_selection in available else 0, key=f"escolha_{player}"
+    st.selectbox(
+        f"{player}",
+        available,
+        index=available.index(current_selection) if current_selection in available else 0,
+        key=f"escolha_{player}"
     )
 
 # Verificar se dois papéis únicos foram atribuídos
