@@ -186,7 +186,12 @@ for player in trio:
     ]
     available = [""] + [c for c in choices if c not in other_selections or c == current_selection]
 
-    st.session_state[f"escolha_{player}"] = st.selectbox(
+# Linha corrigida abaixo
+    st.selectbox(
+        f"{player}", available,
+        index=available.index(current_selection) if current_selection in available else 0,
+        key=f"escolha_{player}"
+    )
         f"{player}", available, index=available.index(current_selection) if current_selection in available else 0, key=f"escolha_{player}"
     )
 
