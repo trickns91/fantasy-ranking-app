@@ -12,6 +12,13 @@ import math
 
 st.set_page_config(page_title="Fantasy Ranking App", layout="centered")
 
+# Resetar rádios, se necessário
+if st.session_state.get("reset_radios", False):
+    for k in list(st.session_state.keys()):
+        if k.startswith("voto_"):
+            del st.session_state[k]
+    st.session_state["reset_radios"] = False
+
 if "pagina" not in st.session_state:
     st.session_state["pagina"] = "comparar"
 pagina = st.session_state["pagina"]
@@ -75,6 +82,7 @@ if pagina == "comparar":
                     progress["preferences"].append((melhor, pior))
                     progress["history"].append(tuple(sorted((melhor, pior))))
             save_user_progress(user, position, progress)
+            st.session_state["reset_radios"] = True
             st.rerun()
 
     st.markdown("---")
@@ -114,7 +122,7 @@ elif pagina == "ranking":
         sugestoes = suggest_repair_comparisons(graph, progress["preferences"])
         if sugestoes:
             st.markdown("🔄 Compare os seguintes jogadores para melhorar o ranking:")
-            for a, b in sugestoes[:3]:
+            for a, b in sugestoes[:5]:
                 st.markdown(f"- {a} vs {b}")
         else:
             st.warning("Não foi possível sugerir pares. Tente comparar mais jogadores.")
