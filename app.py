@@ -1,3 +1,7 @@
+if "pagina" not in st.session_state:
+    st.session_state["pagina"] = "comparar"
+
+pagina = st.session_state["pagina"]
 
 if pagina == "comparar":
     st.subheader("Escolha quem é melhor entre os três:")
