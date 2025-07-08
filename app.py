@@ -61,6 +61,12 @@ players_df = load_players(position)
 all_players = players_df.to_dict("records")
 progress = load_user_progress(user, position)
 
+if st.button("🗑️ Resetar meu ranking"):
+    progress = {"votes": [], "history": []}
+    save_user_progress(user, position, progress)
+    st.rerun()
+
+
 # Remover jogadores já escolhidos para variar
 recent = progress["history"][-9:] if progress["history"] else []
 candidates = [p for p in all_players if p["PLAYER NAME"] not in recent]
