@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import random
 import networkx as nx
+from collections import Counter
 from utils import (
     load_players, load_user_progress, save_user_progress,
     get_next_trio_heuristic, get_recent_players
@@ -65,7 +66,6 @@ if st.button("🔍 Ver prévia do ranking"):
     st.session_state["pagina"] = "previa"
     st.rerun()
 
-# Página de prévia do ranking
 if st.session_state.get("pagina") == "previa":
     st.subheader("🔍 Prévia do Ranking")
     G = nx.DiGraph()
@@ -112,6 +112,31 @@ if st.session_state.get("pagina") == "previa":
             ])
             st.table(df_tier.sort_values("Rank"))
 
+        # Estatísticas
+        st.markdown("#### 📊 Frequência de escolhas")
+        start_count = Counter()
+        bench_count = Counter()
+        drop_count = Counter()
+
+        prefs = progress["preferences"]
+        for i in range(0, len(prefs), 3):
+            if i + 2 < len(prefs):
+                start_count[prefs[i][0]] += 1
+                bench_count[prefs[i+1][0]] += 1
+                drop_count[prefs[i+2][1]] += 1
+
+        all_counts = set(start_count.keys()) | set(bench_count.keys()) | set(drop_count.keys())
+        df_summary = pd.DataFrame([
+            {
+                "Jogador": p,
+                "Start": start_count.get(p, 0),
+                "Bench": bench_count.get(p, 0),
+                "Drop": drop_count.get(p, 0)
+            }
+            for p in all_counts
+        ])
+        st.dataframe(df_summary.sort_values("Start", ascending=False), use_container_width=True)
+
         if st.button("📥 Baixar ranking em CSV"):
             df_export = pd.DataFrame(ranking, columns=["PLAYER NAME"])
             df_export["Rank"] = df_export.index + 1
@@ -127,8 +152,12 @@ if st.session_state.get("pagina") == "previa":
 
     st.stop()
 
-# Comparação com 2 cliques (start, bench, drop)
-st.markdown("### 🧠 Escolha: Start, Bench, Drop")
+# Start / Bench / Drop interface real
+st.markdown("### 🧠 Para este trio, escolha:")
+st.markdown("- 🏈 **Start**: quem você colocaria como titular")
+st.markdown("- 🪑 **Bench**: quem deixaria no banco")
+st.markdown("- ❌ **Drop**: quem você dispensaria")
+
 tiers = all_players_df["TIERS"].tolist() if "TIERS" in all_players_df.columns else None
 trio = get_next_trio_heuristic(all_players, progress["preferences"], progress["history"], k=3, tiers=tiers, exclude=recent_players)
 
@@ -157,7 +186,7 @@ if start and bench:
     save_user_progress(user, position, progress)
     st.rerun()
 
-# Reset ranking
+# Reset
 with st.expander("🔁 Resetar ranking"):
     senha_reset = st.text_input(f"Digite sua senha para confirmar o reset de {position}:", type="password")
     if st.button("Confirmar reset"):
