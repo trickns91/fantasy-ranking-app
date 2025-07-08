@@ -101,6 +101,8 @@ if st.session_state.get("pagina") == "previa":
             tiers.append(tier)
 
         for t_idx, t in enumerate(tiers):
+        st.markdown(f"🎯 **Tier {t_idx+1}**")
+        tier_data = []
             st.markdown(f"##### 🎯 Tier {t_idx+1}")
             df_tier = pd.DataFrame([
                 {
