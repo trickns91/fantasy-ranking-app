@@ -61,7 +61,7 @@ if pagina == "comparar":
         with cols[i]:
             st.markdown(f"### {nome}")
             st.markdown(f"**Tier**: {jogador.get('TIERS', '?')}")
-            votos[nome] = st.radio("Escolha:", ["", "Start", "Bench", "Drop"], key=f"voto_{i}")
+            votos[nome] = st.radio("Escolha:", ["Start", "Bench", "Drop"], key=f"voto_{i}")
 
     if st.button("✅ Confirmar escolha"):
         if sorted(votos.values()) != ["Bench", "Drop", "Start"]:
